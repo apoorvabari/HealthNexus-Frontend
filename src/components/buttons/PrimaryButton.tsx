@@ -4,6 +4,8 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
+  StyleProp,
+  ViewStyle,
 } from "react-native";
 
 interface ButtonProps {
@@ -12,12 +14,14 @@ interface ButtonProps {
   onPress: () => void;
 
   loading?: boolean;
+
+  style?: StyleProp<ViewStyle>;
 }
 
-const PrimaryButton = ({ title, onPress, loading = false }: ButtonProps) => {
+const PrimaryButton = ({ title, onPress, loading = false, style }: ButtonProps) => {
   return (
     <TouchableOpacity
-      style={styles.button}
+      style={[styles.button, style]}
       onPress={onPress}
       disabled={loading}
     >

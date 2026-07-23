@@ -47,6 +47,9 @@ const PasswordInput = ({
           placeholderTextColor={isFocused ? "#0D6EFD" : "#C0C0C0"}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          autoComplete="new-password"
+          importantForAutofill="no"
+          textContentType="none"
         />
 
         <TouchableOpacity onPress={() => setHidePassword(!hidePassword)}>

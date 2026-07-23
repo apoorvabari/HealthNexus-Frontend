@@ -25,6 +25,21 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+    id?: number;
+    userId?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
     role: string;
     message: string;
 }
+
+export interface LogoutResponse {
+    message: string;
+}
+
+export interface PasswordResetRequest {
+    email: string;
+    newPassword: string;
+    confirmPassword: string;
+}
