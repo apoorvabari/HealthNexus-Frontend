@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   Dimensions,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -16,6 +17,13 @@ const { width, height } = Dimensions.get("window");
 
 export default function StartLogoScreen() {
   const router = useRouter();
+
+  const handleNavigation = (route: string) => {
+    if (Platform.OS === 'web' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    router.push(route as any);
+  };
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const buttonAnim = useRef(new Animated.Value(40)).current;
@@ -26,19 +34,19 @@ export default function StartLogoScreen() {
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 900,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
           friction: 5,
           tension: 40,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]),
       Animated.timing(buttonAnim, {
         toValue: 0,
         duration: 400,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, []);
@@ -93,7 +101,7 @@ export default function StartLogoScreen() {
         >
           <TouchableOpacity
             style={styles.startButton}
-            onPress={() => router.push("/select-portal")}
+            onPress={() => handleNavigation("/select-portal")}
             activeOpacity={0.88}
           >
             <Text style={styles.startButtonText}>Choose Portal</Text>
@@ -155,11 +163,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#0D6EFD",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 12px 24px rgba(13, 110, 253, 0.12)",
+      },
+      default: {
+        shadowColor: "#0D6EFD",
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        elevation: 8,
+      },
+    }),
     borderWidth: 2,
     borderColor: "#DBEAFE",
   },
@@ -207,11 +222,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#0D6EFD",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 7,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 8px 16px rgba(13, 110, 253, 0.35)",
+      },
+      default: {
+        shadowColor: "#0D6EFD",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        elevation: 7,
+      },
+    }),
   },
   startButtonText: {
     color: "#FFFFFF",

@@ -7,11 +7,19 @@ import {
   ScrollView,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 
 export default function SelectPortalScreen() {
   const router = useRouter();
+
+  const handleNavigation = (route: string) => {
+    if (Platform.OS === 'web' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    router.push(route as any);
+  };
 
   const portals = [
     {
@@ -59,7 +67,7 @@ export default function SelectPortalScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.push("/")}
+            onPress={() => handleNavigation("/")}
           >
             <Text style={styles.backText}>← Back to Home</Text>
           </TouchableOpacity>
@@ -77,7 +85,7 @@ export default function SelectPortalScreen() {
                 styles.portalCard,
                 { backgroundColor: portal.bgColor, borderColor: portal.borderColor },
               ]}
-              onPress={() => router.push(portal.route as any)}
+              onPress={() => handleNavigation(portal.route)}
               activeOpacity={0.85}
             >
               <View style={styles.cardHeader}>
@@ -102,7 +110,7 @@ export default function SelectPortalScreen() {
 
         <View style={styles.footerInfo}>
           <Text style={styles.footerText}>Need a new patient account?</Text>
-          <TouchableOpacity onPress={() => router.push("/patient/register")}>
+          <TouchableOpacity onPress={() => handleNavigation("/patient/register")}>
             <Text style={styles.registerLink}>Register Patient Account</Text>
           </TouchableOpacity>
         </View>
@@ -151,11 +159,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 22,
     borderWidth: 1.5,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 4px 10px rgba(15, 23, 42, 0.05)",
+      },
+      default: {
+        shadowColor: "#0F172A",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
+      },
+    }),
   },
   cardHeader: {
     flexDirection: "row",
