@@ -9,9 +9,10 @@ export interface RegisterRequest {
 }
 
 export interface RegisterResponse {
-    id: number;
+    id: string | number;
+    userId?: string;
     firstName: string;
-    middleName: string;
+    middleName?: string;
     lastName: string;
     email: string;
     role: string;
@@ -25,12 +26,14 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-    id?: number;
+    id?: string | number;
     userId?: string;
     firstName?: string;
     lastName?: string;
     email?: string;
     role: string;
+    accessToken?: string;
+    refreshToken?: string;
     message: string;
 }
 
