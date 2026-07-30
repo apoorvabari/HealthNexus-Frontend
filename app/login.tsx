@@ -10,16 +10,76 @@ import {
   SafeAreaView,
   Modal,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import Toast from "react-native-toast-message";
 
-import CustomInput from "../../src/components/inputs/CustomInput";
-import PasswordInput from "../../src/components/inputs/PasswordInput";
-import PrimaryButton from "../../src/components/buttons/PrimaryButton";
-import { login, resetPassword } from "../../src/services/AccountService";
+import CustomInput from "../src/components/inputs/CustomInput";
+import PasswordInput from "../src/components/inputs/PasswordInput";
+import PrimaryButton from "../src/components/buttons/PrimaryButton";
+import { login, resetPassword } from "../src/services/AccountService";
 
-export default function PatientLoginScreen() {
+type PortalType = "patient" | "doctor" | "receptionist";
+
+const PORTAL_CONFIG = {
+  patient: {
+    badgeIcon: "🩺",
+    badgeText: "PATIENT PORTAL",
+    title: "Patient Sign In",
+    subtitle: "Access your medical history, doctors & appointments",
+    emailLabel: "Patient Email",
+    themeColor: "#0284C7",
+    bgColor: "#F0F9FF",
+    borderColor: "#BAE6FD",
+    registerRoute: "/patient/register",
+    registerText: "New Patient? ",
+    badgeBg: "#E0F2FE",
+  },
+  doctor: {
+    badgeIcon: "👨‍⚕️",
+    badgeText: "DOCTOR PORTAL",
+    title: "Doctor Sign In",
+    subtitle: "Manage daily schedules, consult patients & write electronic prescriptions",
+    emailLabel: "Doctor Email",
+    themeColor: "#059669",
+    bgColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    registerRoute: "/doctor/register",
+    registerText: "New Doctor? ",
+    badgeBg: "#D1FAE5",
+  },
+  receptionist: {
+    badgeIcon: "📋",
+    badgeText: "RECEPTIONIST PORTAL",
+    title: "Receptionist Sign In",
+    subtitle: "Handle front desk check-ins, register walk-ins & schedule doctor slots",
+    emailLabel: "Receptionist Email",
+    themeColor: "#4F46E5",
+    bgColor: "#EEF2FF",
+    borderColor: "#C7D2FE",
+    registerRoute: "/receptionist/register",
+    registerText: "New Receptionist? ",
+    badgeBg: "#E0E7FF",
+  },
+  default: {
+    badgeIcon: "🩺",
+    badgeText: "HEALTHNEX ACCESS",
+    title: "Account Sign In",
+    subtitle: "Enter your credentials to access your portal",
+    emailLabel: "Email Address",
+    themeColor: "#0D6EFD",
+    bgColor: "#F8FAFC",
+    borderColor: "#E2E8F0",
+    registerRoute: "/select-portal",
+    registerText: "No account? ",
+    badgeBg: "#EFF6FF",
+  }
+};
+
+export default function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const portalParam = (params.portal as string)?.toLowerCase() as PortalType;
+  const config = PORTAL_CONFIG[portalParam] || PORTAL_CONFIG.default;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -133,29 +193,27 @@ export default function PatientLoginScreen() {
         password: password.trim(),
       });
 
-      if (response.role && response.role.toUpperCase() !== "PATIENT") {
-        Toast.show({
-          type: "error",
-          text1: "Access Denied",
-          text2: `This account has role (${response.role}). Please use the correct portal.`,
-        });
-        return;
-      }
-
       Toast.show({
         type: "success",
-        text1: "Patient Login Successful",
-        text2: response.message || "Welcome to your Patient Portal!",
+        text1: "Login Successful",
+        text2: response.message || "Welcome back to HealthNexus!",
       });
 
       setTimeout(() => {
-        router.replace("/patient/home");
+        const userRole = response.role ? response.role.toUpperCase() : "PATIENT";
+        if (userRole === "DOCTOR") {
+          router.replace("/doctor/home");
+        } else if (userRole === "RECEPTIONIST") {
+          router.replace("/receptionist/home");
+        } else {
+          router.replace("/patient/home");
+        }
       }, 1000);
     } catch (error: any) {
       const message =
         error?.response?.data?.message ||
         error?.message ||
-        "Unable to login to Patient Portal.";
+        "Unable to login. Please try again.";
       Toast.show({
         type: "error",
         text1: "Login Failed",
@@ -167,7 +225,7 @@ export default function PatientLoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: config.bgColor }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -180,26 +238,24 @@ export default function PatientLoginScreen() {
             style={styles.backButton}
             onPress={() => router.push("/select-portal")}
           >
-            <Text style={styles.backText}>← Choose Portal</Text>
+            <Text style={[styles.backText, { color: config.themeColor }]}>← Choose Portal</Text>
           </TouchableOpacity>
 
           <View style={styles.headerSection}>
-            <View style={styles.badgeContainer}>
-              <Text style={styles.badgeIcon}>🩺</Text>
-              <Text style={styles.badgeText}>PATIENT PORTAL</Text>
+            <View style={[styles.badgeContainer, { backgroundColor: config.badgeBg }]}>
+              <Text style={styles.badgeIcon}>{config.badgeIcon}</Text>
+              <Text style={[styles.badgeText, { color: config.themeColor }]}>{config.badgeText}</Text>
             </View>
-            <Text style={styles.title}>Patient Sign In</Text>
-            <Text style={styles.subtitle}>
-              Access your medical history, doctors & appointments
-            </Text>
+            <Text style={styles.title}>{config.title}</Text>
+            <Text style={styles.subtitle}>{config.subtitle}</Text>
           </View>
 
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, { borderColor: config.borderColor }]}>
             <CustomInput
-              label="Patient Email"
+              label={config.emailLabel}
               placeholder="Enter your email"
               value={email}
-              onChangeText={(t) => { setEmail(t); setErrors({ ...errors, email: "" }); }}
+              onChangeText={(t: string) => { setEmail(t); setErrors({ ...errors, email: "" }); }}
               autoCapitalize="none"
               keyboardType="email-address"
               error={errors.email}
@@ -209,26 +265,26 @@ export default function PatientLoginScreen() {
               label="Password"
               placeholder="Enter your password"
               value={password}
-              onChangeText={(t) => { setPassword(t); setErrors({ ...errors, password: "" }); }}
+              onChangeText={(t: string) => { setPassword(t); setErrors({ ...errors, password: "" }); }}
               error={errors.password}
             />
 
             <TouchableOpacity onPress={() => setShowResetModal(true)} style={styles.forgotBtn}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
+              <Text style={[styles.forgotText, { color: config.themeColor }]}>Forgot Password?</Text>
             </TouchableOpacity>
 
             <PrimaryButton
-              title="Sign In to Patient Portal"
+              title="Sign In"
               onPress={handleLogin}
               loading={loading}
-              style={styles.loginBtn}
+              style={[styles.loginBtn, { backgroundColor: config.themeColor }]}
             />
           </View>
 
           <View style={styles.footerSection}>
-            <TouchableOpacity onPress={() => router.push("/patient/register")}>
+            <TouchableOpacity onPress={() => router.push(config.registerRoute as any)}>
               <Text style={styles.registerText}>
-                New Patient? <Text style={styles.registerBold}>Register Here</Text>
+                {config.registerText}<Text style={[styles.registerBold, { color: config.themeColor }]}>Register Here</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -255,7 +311,7 @@ export default function PatientLoginScreen() {
                 label="Registered Email Address"
                 placeholder="Enter your registered email"
                 value={resetEmail}
-                onChangeText={(t) => { setResetEmail(t); setResetErrors({ ...resetErrors, email: "" }); }}
+                onChangeText={(t: string) => { setResetEmail(t); setResetErrors({ ...resetErrors, email: "" }); }}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 error={resetErrors.email}
@@ -268,7 +324,7 @@ export default function PatientLoginScreen() {
                 label="New Password"
                 placeholder="Min 4 chars with Uppercase, Number & Symbol"
                 value={newPassword}
-                onChangeText={(t) => { setNewPassword(t); setResetErrors({ ...resetErrors, newPassword: "" }); }}
+                onChangeText={(t: string) => { setNewPassword(t); setResetErrors({ ...resetErrors, newPassword: "" }); }}
                 error={resetErrors.newPassword}
               />
 
@@ -276,7 +332,7 @@ export default function PatientLoginScreen() {
                 label="Confirm New Password"
                 placeholder="Confirm new password"
                 value={confirmPassword}
-                onChangeText={(t) => { setConfirmPassword(t); setResetErrors({ ...resetErrors, confirmPassword: "" }); }}
+                onChangeText={(t: string) => { setConfirmPassword(t); setResetErrors({ ...resetErrors, confirmPassword: "" }); }}
                 error={resetErrors.confirmPassword}
               />
 
@@ -284,7 +340,7 @@ export default function PatientLoginScreen() {
                 title="Reset Password"
                 onPress={handleResetPassword}
                 loading={resetLoading}
-                style={styles.modalSubmitBtn}
+                style={[styles.modalSubmitBtn, { backgroundColor: config.themeColor }]}
               />
             </ScrollView>
           </View>
@@ -297,7 +353,6 @@ export default function PatientLoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F0F9FF",
   },
   container: {
     flexGrow: 1,
@@ -308,7 +363,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backText: {
-    color: "#0284C7",
     fontSize: 15,
     fontWeight: "600",
   },
@@ -319,7 +373,6 @@ const styles = StyleSheet.create({
   badgeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E0F2FE",
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
@@ -330,7 +383,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   badgeText: {
-    color: "#0284C7",
     fontSize: 13,
     fontWeight: "800",
     letterSpacing: 0.5,
@@ -351,16 +403,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     padding: 22,
     borderRadius: 20,
-    shadowColor: "#0284C7",
+    shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 15,
     elevation: 4,
     borderWidth: 1,
-    borderColor: "#BAE6FD",
   },
   loginBtn: {
-    backgroundColor: "#0284C7",
     marginTop: 10,
   },
   footerSection: {
@@ -372,7 +422,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   registerBold: {
-    color: "#0284C7",
     fontWeight: "700",
   },
   forgotBtn: {
@@ -381,7 +430,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   forgotText: {
-    color: "#0284C7",
     fontSize: 14,
     fontWeight: "600",
   },
@@ -428,7 +476,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   modalSubmitBtn: {
-    backgroundColor: "#0284C7",
     marginTop: 10,
   },
 });

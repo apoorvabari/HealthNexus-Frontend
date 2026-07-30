@@ -132,7 +132,7 @@ export default function PatientRegisterScreen() {
       });
 
       Toast.show({ type: "success", text1: "Account Created", text2: response.message || "Patient account registered!" });
-      setTimeout(() => router.replace("/patient/login"), 1500);
+      setTimeout(() => router.replace("/login?portal=patient"), 1500);
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.message || "Unable to register.";
       if (message.toLowerCase().includes("email") && message.toLowerCase().includes("exist")) {
@@ -148,7 +148,7 @@ export default function PatientRegisterScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/patient/login")}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/login?portal=patient")}>
             <Text style={styles.backText}>← Back to Login</Text>
           </TouchableOpacity>
 
@@ -183,7 +183,7 @@ export default function PatientRegisterScreen() {
             <PrimaryButton title="Create Patient Account" onPress={handleRegister} loading={loading} style={styles.registerBtn} />
           </View>
 
-          <TouchableOpacity onPress={() => router.push("/patient/login")} style={styles.loginLinkBtn}>
+          <TouchableOpacity onPress={() => router.push("/login?portal=patient")} style={styles.loginLinkBtn}>
             <Text style={styles.loginText}>Already have an account? <Text style={styles.loginBold}>Sign In</Text></Text>
           </TouchableOpacity>
         </ScrollView>

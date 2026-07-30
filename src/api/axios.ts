@@ -13,9 +13,17 @@ const api = axios.create({
 api.interceptors.request.use(
     async (config) => {
         try {
-            const token = await AsyncStorage.getItem("accessToken");
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`;
+            const isAuthEndpoint = config.url && (
+                config.url.endsWith("/accounts/login") ||
+                config.url.endsWith("/accounts/register") || 
+                config.url.endsWith("/accounts/reset-password")
+            );
+
+            if (!isAuthEndpoint) {
+                const token = await AsyncStorage.getItem("accessToken");
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
             }
         } catch (e) {
             console.error("Error managing token inside request interceptor", e);

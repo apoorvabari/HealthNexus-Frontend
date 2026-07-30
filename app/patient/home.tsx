@@ -14,7 +14,7 @@ export default function PatientHomeScreen() {
   const router = useRouter();
 
   const handleLogout = () => {
-    router.push("/patient/logout");
+    router.push("/logout?portal=patient");
   };
 
   return (

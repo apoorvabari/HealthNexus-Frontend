@@ -63,7 +63,7 @@ export default function ReceptionistRegisterScreen() {
       setLoading(true);
       const response = await register({ firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), email: email.trim(), phoneNumber: phoneNumber.trim(), password: password.trim(), role });
       Toast.show({ type: "success", text1: "Account Created", text2: response.message || "Receptionist account registered!" });
-      setTimeout(() => router.replace("/receptionist/login"), 1500);
+      setTimeout(() => router.replace("/login?portal=receptionist"), 1500);
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.message || "Unable to register.";
       if (message.toLowerCase().includes("email") && message.toLowerCase().includes("exist")) {
@@ -77,7 +77,7 @@ export default function ReceptionistRegisterScreen() {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/receptionist/login")}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/login?portal=receptionist")}>
             <Text style={styles.backText}>← Back to Login</Text>
           </TouchableOpacity>
 
@@ -101,7 +101,7 @@ export default function ReceptionistRegisterScreen() {
             <PrimaryButton title="Create Receptionist Account" onPress={handleRegister} loading={loading} style={styles.registerBtn} />
           </View>
 
-          <TouchableOpacity onPress={() => router.push("/receptionist/login")} style={styles.loginLinkBtn}>
+          <TouchableOpacity onPress={() => router.push("/login?portal=receptionist")} style={styles.loginLinkBtn}>
             <Text style={styles.loginText}>Already registered? <Text style={styles.loginBold}>Sign In</Text></Text>
           </TouchableOpacity>
         </ScrollView>

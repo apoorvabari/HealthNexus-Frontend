@@ -18,6 +18,7 @@ export const register = async (
 };
 
 export const login = async (data: LoginRequest): Promise<LoginResponse> => {
+  await AsyncStorage.removeItem("accessToken");
   const response = await api.post(Endpoints.LOGIN, data);
   const loginResponse: LoginResponse = response.data;
   if (loginResponse.accessToken) {

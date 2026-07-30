@@ -9,7 +9,7 @@ export default function DoctorHomeScreen() {
   const router = useRouter();
 
   const handleLogout = () => {
-    router.push("/doctor/logout");
+    router.push("/logout?portal=doctor");
   };
 
   return (

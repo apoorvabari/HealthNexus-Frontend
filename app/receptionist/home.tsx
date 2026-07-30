@@ -9,7 +9,7 @@ export default function ReceptionistHomeScreen() {
   const router = useRouter();
 
   const handleLogout = () => {
-    router.push("/receptionist/logout");
+    router.push("/logout?portal=receptionist");
   };
 
   return (
