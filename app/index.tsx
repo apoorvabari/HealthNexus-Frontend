@@ -1,233 +1,223 @@
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Image,
   TouchableOpacity,
-  Animated,
-  SafeAreaView,
-  StatusBar,
   Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import ViewShot from "react-native-view-shot";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
-export default function StartLogoScreen() {
+export default function IndexScreen() {
   const router = useRouter();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
-  const buttonAnim = useRef(new Animated.Value(40)).current;
-
-  useEffect(() => {
-    Animated.sequence([
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 5,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.timing(buttonAnim, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+  const viewShotRef = useRef<any>(null);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+    <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.9 }} style={{ flex: 1 }}>
+      <LinearGradient
+        colors={["#F8FAFC", "#E0F2FE", "#F0FDF4"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.container}
+      >
+        {/* Ambient Background Elements */}
+        <View style={styles.topBlob} />
+        <View style={styles.bottomBlob} />
 
-      {/* Background decorative circles */}
-      <View style={styles.bgCircle1} />
-      <View style={styles.bgCircle2} />
-
-      <View style={styles.content}>
-        <View style={styles.centerContainer}>
-          {/* Logo Section */}
-          <Animated.View
-            style={[
-              styles.logoWrapper,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
-            <View style={styles.logoOuterRing}>
-              <View style={styles.logoInnerRing}>
-                <Image
-                  source={require("../src/assets/images/healthnexus-logo.png")}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
+        {/* Main Content Card */}
+        <View style={styles.contentContainer}>
+          {/* Logo Container with Glassmorphic Effect */}
+          <View style={styles.logoWrapper}>
+            <View style={styles.logoGlow} />
+            <View style={styles.logoCard}>
+              <Image
+                source={require("../src/assets/images/healthnexus-logo.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
-          </Animated.View>
+          </View>
 
-          {/* Title Section */}
-          <Animated.View style={[styles.titleSection, { opacity: fadeAnim }]}>
-            <Text style={styles.appName}>HealthNexus</Text>
-            <Text style={styles.tagline}>Your Health. Our Priority.</Text>
-          </Animated.View>
+          {/* Brand Typography */}
+          <View style={styles.textGroup}>
+            <Text style={styles.brandTitle}>HealthNexus</Text>
+            <View style={styles.dividerLine} />
+            <Text style={styles.brandTagline}>Your Health. Our Priority.</Text>
+          </View>
         </View>
 
-        {/* Bottom Button */}
-        <Animated.View
-          style={[
-            styles.bottomContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: buttonAnim }],
-            },
-          ]}
-        >
+        {/* Bottom Action Area */}
+        <View style={styles.footerContainer}>
           <TouchableOpacity
-            style={styles.startButton}
+            activeOpacity={0.85}
+            style={styles.buttonWrapper}
             onPress={() => router.push("/select-portal")}
-            activeOpacity={0.88}
           >
-            <Text style={styles.startButtonText}>Choose Portal</Text>
-            <Text style={styles.arrowIcon}>→</Text>
+            <LinearGradient
+              colors={["#059669", "#06B6D4", "#0284C7"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gradientButton}
+            >
+              <Text style={styles.buttonText}>Choose Portal</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={styles.arrowIcon} />
+            </LinearGradient>
           </TouchableOpacity>
-          <Text style={styles.versionText}>HealthNexus v1.0  •  Next-Gen Healthcare</Text>
-        </Animated.View>
-      </View>
-    </SafeAreaView>
+
+          <View style={styles.metaInfo}>
+            <Text style={styles.versionText}>HealthNexus v1.0</Text>
+            <View style={styles.dotSeparator} />
+            <Text style={styles.versionText}>Next-Gen Healthcare Platform</Text>
+          </View>
+        </View>
+      </LinearGradient>
+    </ViewShot>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
-  },
-  bgCircle1: {
-    position: "absolute",
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: "#EFF6FF",
-    top: -80,
-    right: -80,
-  },
-  bgCircle2: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "#F0FDF4",
-    bottom: 80,
-    left: -60,
-  },
-  content: {
-    flex: 1,
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 28,
-    paddingTop: height * 0.04,
-    paddingBottom: 36,
+    paddingHorizontal: 24,
+    paddingVertical: 52,
+    overflow: "hidden",
   },
-  centerContainer: {
+  topBlob: {
+    position: "absolute",
+    top: -width * 0.25,
+    right: -width * 0.15,
+    width: width * 0.75,
+    height: width * 0.75,
+    borderRadius: width * 0.375,
+    backgroundColor: "rgba(6, 182, 212, 0.35)",
+  },
+  bottomBlob: {
+    position: "absolute",
+    bottom: -width * 0.15,
+    left: -width * 0.15,
+    width: width * 0.65,
+    height: width * 0.65,
+    borderRadius: width * 0.325,
+    backgroundColor: "rgba(16, 185, 129, 0.3)",
+  },
+  contentContainer: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    gap: 32,
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: 480,
   },
   logoWrapper: {
     alignItems: "center",
-  },
-  logoOuterRing: {
-    width: width * 0.52,
-    height: width * 0.52,
-    maxWidth: 220,
-    maxHeight: 220,
-    borderRadius: 120,
-    backgroundColor: "#FFFFFF",
     justifyContent: "center",
+    marginBottom: 36,
+    position: "relative",
+  },
+  logoGlow: {
+    position: "absolute",
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(6, 182, 212, 0.25)",
+    transform: [{ scale: 1.15 }],
+  },
+  logoCard: {
+    width: 140,
+    height: 140,
+    borderRadius: 36,
+    backgroundColor: "rgba(255, 255, 255, 0.75)",
     alignItems: "center",
-    shadowColor: "#0D6EFD",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
+    justifyContent: "center",
+    shadowColor: "#94A3B8",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.2,
+    shadowRadius: 28,
     elevation: 8,
-    borderWidth: 2,
-    borderColor: "#DBEAFE",
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 1)",
   },
-  logoInnerRing: {
-    width: "86%",
-    height: "86%",
-    borderRadius: 100,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 0,
+  logoImage: {
+    width: 90,
+    height: 90,
   },
-  logo: {
-    width: "90%",
-    height: "90%",
-  },
-  titleSection: {
+  textGroup: {
     alignItems: "center",
   },
-  appName: {
-    fontSize: 38,
+  brandTitle: {
+    fontSize: 36,
     fontWeight: "800",
     color: "#0F172A",
-    letterSpacing: -1,
-    textAlign: "center",
+    letterSpacing: -0.8,
+    marginBottom: 10,
   },
-  tagline: {
+  dividerLine: {
+    width: 48,
+    height: 3.5,
+    backgroundColor: "#10B981",
+    borderRadius: 2,
+    marginBottom: 14,
+  },
+  brandTagline: {
     fontSize: 16,
-    color: "#64748B",
-    marginTop: 8,
+    color: "#475569",
     fontWeight: "500",
     letterSpacing: 0.3,
-    textAlign: "center",
   },
-  bottomContainer: {
+  footerContainer: {
     width: "100%",
+    maxWidth: 480,
     alignItems: "center",
-    gap: 14,
+    paddingBottom: 16,
   },
-  startButton: {
-    backgroundColor: "#0D6EFD",
+  buttonWrapper: {
     width: "100%",
-    paddingVertical: 18,
     borderRadius: 18,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#0D6EFD",
-    shadowOffset: { width: 0, height: 8 },
+    shadowColor: "#06B6D4",
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 7,
+    shadowRadius: 20,
+    elevation: 8,
+    marginBottom: 24,
   },
-  startButtonText: {
+  gradientButton: {
+    flexDirection: "row",
+    height: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  buttonText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
-    letterSpacing: 0.3,
-    marginRight: 10,
+    letterSpacing: 0.5,
   },
   arrowIcon: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "800",
+    marginLeft: 8,
+  },
+  metaInfo: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   versionText: {
-    color: "#94A3B8",
-    fontSize: 13,
+    fontSize: 12,
+    color: "#475569",
     fontWeight: "500",
+  },
+  dotSeparator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#94A3B8",
+    marginHorizontal: 8,
   },
 });

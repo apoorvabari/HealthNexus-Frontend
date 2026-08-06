@@ -1,93 +1,68 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  TextInputProps,
-  Platform,
-} from "react-native";
+import React from "react";
+import { View, Text, TextInput, StyleSheet, TextInputProps } from "react-native";
 
-interface CustomInputProps extends TextInputProps {
-  label: string;
+export interface CustomInputProps extends TextInputProps {
+  label?: string;
   error?: string;
+  darkTheme?: boolean;
 }
 
-const CustomInput = ({ label, error, ...props }: CustomInputProps) => {
-  const [isFocused, setIsFocused] = useState(false);
-
+export default function CustomInput({ label, error, style, darkTheme = true, ...props }: CustomInputProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
-
+      {label ? (
+        <Text style={[styles.label, darkTheme ? styles.labelDark : null]}>{label}</Text>
+      ) : null}
       <TextInput
         style={[
           styles.input,
-          error ? styles.errorInput : null,
-          isFocused ? styles.focusedInput : null
+          darkTheme ? styles.inputDark : null,
+          error ? styles.inputError : null,
+          style,
         ]}
-        placeholderTextColor={isFocused ? "#0D6EFD" : "#C0C0C0"}
-        onFocus={(e) => {
-          setIsFocused(true);
-          if (props.onFocus) {
-            props.onFocus(e);
-          }
-        }}
-        onBlur={(e) => {
-          setIsFocused(false);
-          if (props.onBlur) {
-            props.onBlur(e);
-          }
-        }}
+        placeholderTextColor={darkTheme ? "#94A3B8" : "#94A3B8"}
         {...props}
       />
-
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
     </View>
   );
-};
-
-export default CustomInput;
+}
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 15,
+    marginBottom: 16,
+    width: "100%",
   },
-
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    marginBottom: 5,
-    color: "#333333",
+    color: "#334155",
+    marginBottom: 6,
   },
-
+  labelDark: {
+    color: "#334155",
+  },
   input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    color: "#000000",
     backgroundColor: "#FFFFFF",
-    ...Platform.select({
-      web: {
-        outlineStyle: "none",
-      } as any
-    })
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: "#0F172A",
   },
-
-  focusedInput: {
-    borderColor: "#0D6EFD",
+  inputDark: {
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderColor: "rgba(0, 0, 0, 0.1)",
+    color: "#0F172A",
   },
-
-  errorInput: {
-    borderColor: "#FF3B30",
+  inputError: {
+    borderColor: "#EF4444",
   },
-
   errorText: {
-    color: "#FF3B30",
-    fontSize: 13,
-    marginTop: 5,
-    marginLeft: 3,
+    fontSize: 12,
+    color: "#F87171",
+    marginTop: 4,
   },
 });

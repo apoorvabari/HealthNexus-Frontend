@@ -5,8 +5,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import Toast from "react-native-toast-message";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
-import { register } from "../../src/services/AccountService";
+import { register } from "../../src/services/UserService";
 import CustomInput from "../../src/components/inputs/CustomInput";
 import PasswordInput from "../../src/components/inputs/PasswordInput";
 import PrimaryButton from "../../src/components/buttons/PrimaryButton";
@@ -39,6 +41,7 @@ export default function DoctorRegisterScreen() {
 
     if (!lastName.trim()) { newErrors.lastName = "Last name is required."; valid = false; }
     else if (!/^[A-Za-z]+$/.test(lastName.trim())) { newErrors.lastName = "Only alphabets allowed."; valid = false; }
+    else if (lastName.trim().length > 10) { newErrors.lastName = "Max 10 characters."; valid = false; }
 
     if (!email.trim()) { newErrors.email = "Email is required."; valid = false; }
     else if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) { newErrors.email = "Enter a valid email."; valid = false; }
@@ -47,8 +50,8 @@ export default function DoctorRegisterScreen() {
     else if (!/^[0-9]{10}$/.test(phoneNumber.trim())) { newErrors.phoneNumber = "Must be exactly 10 digits."; valid = false; }
 
     if (!password.trim()) { newErrors.password = "Password is required."; valid = false; }
-    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$%^&+=!]).{4,8}$/.test(password)) {
-      newErrors.password = "4-8 chars: uppercase, lowercase, number & symbol."; valid = false;
+    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$%^&+=!]).{4,20}$/.test(password)) {
+      newErrors.password = "4-20 chars: uppercase, lowercase, number & symbol."; valid = false;
     }
 
     setErrors(newErrors);
@@ -63,7 +66,7 @@ export default function DoctorRegisterScreen() {
       setLoading(true);
       const response = await register({ firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(), email: email.trim(), phoneNumber: phoneNumber.trim(), password: password.trim(), role });
       Toast.show({ type: "success", text1: "Doctor Account Created", text2: response.message || "Account registered!" });
-      setTimeout(() => router.replace("/doctor/login"), 1500);
+      setTimeout(() => router.replace("/login?role=doctor"), 1500);
     } catch (error: any) {
       const message = error?.response?.data?.message || error?.message || "Unable to register.";
       if (message.toLowerCase().includes("email") && message.toLowerCase().includes("exist")) {
@@ -75,55 +78,66 @@ export default function DoctorRegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.push("/doctor/login")}>
-            <Text style={styles.backText}>← Back to Login</Text>
-          </TouchableOpacity>
+      <LinearGradient
+        colors={["#F8FAFC", "#F1F5F9", "#E2E8F0"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientContainer}
+      >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.push("/login?role=doctor")} activeOpacity={0.75}>
+              <Ionicons name="arrow-back" size={16} color="#64748B" />
+              <Text style={styles.backText}>Back to Login</Text>
+            </TouchableOpacity>
 
-          <Image source={require("../../src/assets/images/healthnexus-logo.png")} style={styles.logo} resizeMode="contain" />
+            <Image source={require("../../src/assets/images/healthnexus-logo.png")} style={styles.logo} resizeMode="contain" />
 
-          <View style={styles.headerSection}>
-            <View style={styles.badgeContainer}>
-              <Text style={styles.badgeText}>👨‍⚕️ DOCTOR REGISTRATION</Text>
+            <View style={styles.headerSection}>
+              <View style={styles.badgeContainer}>
+                <Text style={styles.badgeText}>👨‍⚕️ DOCTOR REGISTRATION</Text>
+              </View>
+              <Text style={styles.title}>Create Doctor Account</Text>
+              <Text style={styles.subtitle}>Enter your professional details</Text>
             </View>
-            <Text style={styles.title}>Create Doctor Account</Text>
-            <Text style={styles.subtitle}>Enter your professional details</Text>
-          </View>
 
-          <View style={styles.formCard}>
-            <CustomInput label="First Name *" placeholder="Enter First Name" value={firstName} onChangeText={(t) => { setFirstName(t); setErrors({ ...errors, firstName: "" }); }} error={errors.firstName} />
-            <CustomInput label="Middle Name *" placeholder="Enter Middle Name" value={middleName} onChangeText={(t) => { setMiddleName(t); setErrors({ ...errors, middleName: "" }); }} error={errors.middleName} />
-            <CustomInput label="Last Name *" placeholder="Enter Last Name" value={lastName} onChangeText={(t) => { setLastName(t); setErrors({ ...errors, lastName: "" }); }} error={errors.lastName} />
-            <CustomInput label="Email *" placeholder="Enter Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={(t) => { setEmail(t); setErrors({ ...errors, email: "" }); }} error={errors.email} />
-            <CustomInput label="Phone Number *" placeholder="Enter 10-digit Number" keyboardType="phone-pad" maxLength={10} value={phoneNumber} onChangeText={(t) => { setPhoneNumber(t); setErrors({ ...errors, phoneNumber: "" }); }} error={errors.phoneNumber} />
-            <PasswordInput label="Password *" placeholder="Min 4 chars with Uppercase, Number & Symbol" value={password} onChangeText={(t) => { setPassword(t); setErrors({ ...errors, password: "" }); }} error={errors.password} />
-            <PrimaryButton title="Create Doctor Account" onPress={handleRegister} loading={loading} style={styles.registerBtn} />
-          </View>
+            <View style={styles.formCard}>
+              <Text style={styles.sectionHeader}>Account Credentials</Text>
+              <CustomInput label="First Name *" placeholder="Enter First Name" value={firstName} onChangeText={(t) => { setFirstName(t); setErrors({ ...errors, firstName: "" }); }} error={errors.firstName} darkTheme={true} />
+              <CustomInput label="Middle Name *" placeholder="Enter Middle Name" value={middleName} onChangeText={(t) => { setMiddleName(t); setErrors({ ...errors, middleName: "" }); }} error={errors.middleName} darkTheme={true} />
+              <CustomInput label="Last Name *" placeholder="Enter Last Name" value={lastName} onChangeText={(t) => { setLastName(t); setErrors({ ...errors, lastName: "" }); }} error={errors.lastName} darkTheme={true} />
+              <CustomInput label="Email *" placeholder="Enter Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={(t) => { setEmail(t); setErrors({ ...errors, email: "" }); }} error={errors.email} darkTheme={true} />
+              <CustomInput label="Phone Number *" placeholder="Enter 10-digit Number" keyboardType="phone-pad" maxLength={10} value={phoneNumber} onChangeText={(t) => { setPhoneNumber(t); setErrors({ ...errors, phoneNumber: "" }); }} error={errors.phoneNumber} darkTheme={true} />
+              <PasswordInput label="Password *" placeholder="Min 4 chars with Uppercase, Number & Symbol" value={password} onChangeText={(t) => { setPassword(t); setErrors({ ...errors, password: "" }); }} error={errors.password} darkTheme={true} />
+              <PrimaryButton title="Create Doctor Account" onPress={handleRegister} loading={loading} style={styles.registerBtn} />
+            </View>
 
-          <TouchableOpacity onPress={() => router.push("/doctor/login")} style={styles.loginLinkBtn}>
-            <Text style={styles.loginText}>Already registered? <Text style={styles.loginBold}>Sign In</Text></Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <TouchableOpacity onPress={() => router.push("/login?role=doctor")} style={styles.loginLinkBtn} activeOpacity={0.8}>
+              <Text style={styles.loginText}>Already registered? <Text style={styles.loginBold}>Sign In</Text></Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#ECFDF5" },
-  container: { flexGrow: 1, padding: 22, paddingBottom: 40 },
-  backButton: { marginBottom: 10 },
-  backText: { color: "#059669", fontSize: 15, fontWeight: "600" },
+  safeArea: { flex: 1, backgroundColor: "#F8FAFC", overflow: "hidden" },
+  gradientContainer: { flex: 1 },
+  container: { flexGrow: 1, padding: 22, paddingBottom: 40, maxWidth: 560, alignSelf: "center", width: "100%" },
+  backButton: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 16, alignSelf: "flex-start", backgroundColor: "rgba(0, 0, 0, 0.04)", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(0, 0, 0, 0.08)" },
+  backText: { color: "#475569", fontSize: 13, fontWeight: "600" },
   logo: { width: 70, height: 70, alignSelf: "center", marginBottom: 10 },
   headerSection: { alignItems: "center", marginBottom: 18 },
-  badgeContainer: { backgroundColor: "#D1FAE5", paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, marginBottom: 8 },
-  badgeText: { color: "#059669", fontSize: 12, fontWeight: "800" },
-  title: { fontSize: 24, fontWeight: "800", color: "#0F172A" },
+  badgeContainer: { backgroundColor: "rgba(6, 182, 212, 0.1)", paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, marginBottom: 8, borderWidth: 1, borderColor: "rgba(56, 189, 248, 0.5)" },
+  badgeText: { color: "#38BDF8", fontSize: 12, fontWeight: "800" },
+  title: { fontSize: 26, fontWeight: "800", color: "#0F172A" },
   subtitle: { fontSize: 13, color: "#475569", marginTop: 4 },
-  formCard: { backgroundColor: "#FFFFFF", borderRadius: 20, padding: 20, borderWidth: 1, borderColor: "#A7F3D0", shadowColor: "#059669", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3, marginBottom: 20 },
-  registerBtn: { marginTop: 8, backgroundColor: "#059669" },
-  loginLinkBtn: { alignItems: "center" },
-  loginText: { color: "#475569", fontSize: 15 },
-  loginBold: { color: "#059669", fontWeight: "700" },
+  formCard: { backgroundColor: "rgba(255, 255, 255, 0.7)", borderRadius: 20, padding: 20, borderWidth: 1, borderColor: "rgba(56, 189, 248, 0.5)", shadowColor: "#94A3B8", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8, marginBottom: 20 },
+  sectionHeader: { fontSize: 16, fontWeight: "800", color: "#06B6D4", marginTop: 10, marginBottom: 14 },
+  registerBtn: { marginTop: 12, backgroundColor: "#06B6D4" },
+  loginLinkBtn: { alignItems: "center", paddingVertical: 10 },
+  loginText: { color: "#64748B", fontSize: 15 },
+  loginBold: { color: "#38BDF8", fontWeight: "700" },
 });
