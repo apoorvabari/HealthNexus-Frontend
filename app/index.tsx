@@ -143,10 +143,11 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1.5,
     borderColor: "rgba(255, 255, 255, 1)",
+    overflow: "hidden",
   },
   logoImage: {
-    width: 90,
-    height: 90,
+    width: 125,
+    height: 125,
   },
   textGroup: {
     alignItems: "center",

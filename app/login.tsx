@@ -114,6 +114,21 @@ export default function UnifiedLoginScreen() {
       borderColor: "rgba(167, 139, 250, 0.5)",
       glowColor: "rgba(139, 92, 246, 0.1)",
     };
+  } else if (roleKey === "admin") {
+    theme = {
+      color: "#F59E0B",
+      badgeBg: "rgba(245, 158, 11, 0.1)",
+      badgeColor: "#F59E0B",
+      title: "Admin Sign In",
+      subtitle: "System configuration & infrastructure management",
+      badgeText: "SYSTEM ADMIN",
+      badgeIcon: "⚙️",
+      loginButtonTitle: "Sign In to Admin Console",
+      signupText: "New Admin? Register Here",
+      signupRoute: "/admin/register",
+      borderColor: "rgba(245, 158, 11, 0.5)",
+      glowColor: "rgba(245, 158, 11, 0.1)",
+    };
   }
 
   const handleResetPassword = async () => {
@@ -214,6 +229,18 @@ export default function UnifiedLoginScreen() {
         password: password.trim(),
       });
 
+      const responseRole = (response.role || "").toUpperCase().replace("ROLE_", "");
+
+      if (roleKey && responseRole !== roleKey.toUpperCase()) {
+        Toast.show({
+          type: "error",
+          text1: "Invalid Portal",
+          text2: `You are a ${responseRole}, please login through the ${responseRole.toLowerCase()} portal.`,
+        });
+        setLoading(false);
+        return;
+      }
+
       if (response.accessToken) {
         await saveSession(response.accessToken, {
           id: response.id?.toString(),
@@ -221,11 +248,9 @@ export default function UnifiedLoginScreen() {
           firstName: response.firstName,
           lastName: response.lastName,
           email: response.email,
-          role: response.role,
+          role: responseRole,
         });
       }
-
-      const responseRole = (response.role || "").toUpperCase();
 
       Toast.show({
         type: "success",
@@ -240,6 +265,8 @@ export default function UnifiedLoginScreen() {
           router.replace("/doctor/home");
         } else if (responseRole === "RECEPTIONIST") {
           router.replace("/receptionist/home");
+        } else if (responseRole === "ADMIN") {
+          router.replace("/admin/home");
         } else {
           router.replace("/select-portal");
         }

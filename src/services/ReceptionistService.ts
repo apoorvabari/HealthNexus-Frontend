@@ -20,6 +20,11 @@ export const getAllReceptionists = async (): Promise<ReceptionistResponse[]> => 
   return response.data;
 };
 
+export const getReceptionistByAccountId = async (accountId: string): Promise<ReceptionistResponse> => {
+  const response = await api.get<ReceptionistResponse>(`/api/receptionists/by-account/${accountId}`);
+  return response.data;
+};
+
 export const getReceptionistById = async (id: string): Promise<ReceptionistResponse> => {
   const response = await api.get<ReceptionistResponse>(`/api/receptionists/${id}`);
   return response.data;
@@ -27,6 +32,11 @@ export const getReceptionistById = async (id: string): Promise<ReceptionistRespo
 
 export const createReceptionistProfile = async (data: any): Promise<ReceptionistResponse> => {
   const response = await api.post<ReceptionistResponse>("/api/receptionists", data);
+  return response.data;
+};
+
+export const updateReceptionistProfile = async (id: string, data: any): Promise<ReceptionistResponse> => {
+  const response = await api.put<ReceptionistResponse>(`/api/receptionists/${id}`, data);
   return response.data;
 };
 

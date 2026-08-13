@@ -20,6 +20,19 @@ export default function SelectPortalScreen() {
 
   const portals = [
     {
+      id: "admin",
+      title: "Admin Portal",
+      subtitle: "System configuration & infrastructure",
+      icon: "⚙️",
+      badge: "System Admin",
+      route: "/login?role=admin",
+      gradient: ["#F59E0B", "#D97706"],
+      badgeBg: "rgba(245, 158, 11, 0.18)",
+      badgeColor: "#FBBF24",
+      borderColor: "rgba(251, 191, 36, 0.35)",
+      glowColor: "rgba(245, 158, 11, 0.15)",
+    },
+    {
       id: "patient",
       title: "Patient Portal",
       subtitle: "Access personal medical records & book appointments",

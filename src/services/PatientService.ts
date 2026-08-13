@@ -26,6 +26,11 @@ export const getAllPatients = async (): Promise<PatientResponse[]> => {
   return response.data;
 };
 
+export const getPatientByAccountId = async (accountId: string): Promise<PatientResponse> => {
+  const response = await api.get<PatientResponse>(`/api/patients/by-account/${accountId}`);
+  return response.data;
+};
+
 export const getPatientById = async (id: string): Promise<PatientResponse> => {
   const response = await api.get<PatientResponse>(`/api/patients/${id}`);
   return response.data;

@@ -11,13 +11,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
 import { getUserSession } from "../../src/storage/AuthStorage";
-import { getAllReceptionists, ReceptionistResponse, createReceptionistProfile } from "../../src/services/ReceptionistService";
+import { getReceptionistByAccountId, ReceptionistResponse, createReceptionistProfile, updateReceptionistProfile } from "../../src/services/ReceptionistService";
 import { getAllHospitals, HospitalResponse } from "../../src/services/HospitalService";
 import { getDepartmentsByHospital, DepartmentResponse } from "../../src/services/DepartmentService";
 import { getAllDoctors, DoctorResponse } from "../../src/services/DoctorService";
 import { getAllPatients, PatientResponse } from "../../src/services/PatientService";
 import { getTodayQueueByDoctor, QueueResponse, checkIn } from "../../src/services/QueueService";
-import { createAppointment, getTodayAppointments, AppointmentResponse } from "../../src/services/AppointmentService";
+import { createAppointment, getTodayAppointments, AppointmentResponse, deleteAppointment } from "../../src/services/AppointmentService";
 import CustomInput from "../../src/components/inputs/CustomInput";
 import PrimaryButton from "../../src/components/buttons/PrimaryButton";
 
@@ -32,7 +32,7 @@ export default function ReceptionistHomeScreen() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [hospitals, setHospitals] = useState<HospitalResponse[]>([]);
   const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
-  
+
   const [selectedHospitalIdProfile, setSelectedHospitalIdProfile] = useState("");
   const [selectedDepartmentIdProfile, setSelectedDepartmentIdProfile] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
@@ -51,7 +51,19 @@ export default function ReceptionistHomeScreen() {
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [bookingReason, setBookingReason] = useState("");
+  const [appointmentType, setAppointmentType] = useState("WALK_IN");
   const [bookingLoading, setBookingLoading] = useState(false);
+
+  // Edit profile state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editEmployeeCode, setEditEmployeeCode] = useState("");
+  const [editShift, setEditShift] = useState("MORNING");
+  const [editJoiningDate, setEditJoiningDate] = useState("");
+  const [editHospitalId, setEditHospitalId] = useState("");
+  const [editDepartmentId, setEditDepartmentId] = useState("");
+  const [editDepartments, setEditDepartments] = useState<DepartmentResponse[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [cancellingApptId, setCancellingApptId] = useState<string | null>(null);
 
   const handleLogout = () => {
     router.push("/logout?role=receptionist");
@@ -63,34 +75,37 @@ export default function ReceptionistHomeScreen() {
       const session = await getUserSession();
       setSessionUser(session);
 
-      if (session?.email) {
-        const receptionistList = await getAllReceptionists();
-        const foundProfile = receptionistList.find(r => r.accountId === session.id);
-        if (foundProfile) {
+      if (session?.id) {
+        try {
+          const foundProfile = await getReceptionistByAccountId(session.id);
           setProfile(foundProfile);
           setNeedsProfile(false);
-        } else {
-          setNeedsProfile(true);
-          const data = await getAllHospitals();
-          setHospitals(data);
-          if (data.length > 0) {
-            setSelectedHospitalIdProfile(data[0].id);
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            setNeedsProfile(true);
+            const data = await getAllHospitals();
+            setHospitals(data.content);
+            if (data.content.length > 0) {
+              setSelectedHospitalIdProfile(data.content[0].id);
+            }
+          } else {
+            throw err;
           }
         }
       }
 
       const docList = await getAllDoctors();
-      setDoctors(docList);
+      setDoctors(docList.content);
 
       const patList = await getAllPatients();
       setPatients(patList);
 
-      if (docList.length > 0) {
-        setSelectedDoctorId(docList[0].id);
-        const q = await getTodayQueueByDoctor(docList[0].id);
+      if (docList.content.length > 0) {
+        setSelectedDoctorId(docList.content[0].id);
+        const q = await getTodayQueueByDoctor(docList.content[0].id);
         setSelectedDoctorQueue(q);
       }
-      
+
       const appts = await getTodayAppointments();
       setTodayAppointments(appts);
     } catch (err: any) {
@@ -146,12 +161,20 @@ export default function ReceptionistHomeScreen() {
   };
 
   const handleCreateAppointment = async () => {
-    if (!bookingPatientId || !bookingDoctorId || !bookingDate || !bookingTime) {
-      Toast.show({
-        type: "error",
-        text1: "Validation Error",
-        text2: "Please fill in all mandatory appointment fields.",
-      });
+    if (!bookingPatientId) {
+      Toast.show({ type: "error", text1: "Validation Error", text2: "Please select a patient." });
+      return;
+    }
+    if (!bookingDoctorId) {
+      Toast.show({ type: "error", text1: "Validation Error", text2: "Please select a doctor." });
+      return;
+    }
+    if (!bookingDate) {
+      Toast.show({ type: "error", text1: "Validation Error", text2: "Please select an appointment date." });
+      return;
+    }
+    if (!bookingTime) {
+      Toast.show({ type: "error", text1: "Validation Error", text2: "Please select an appointment time." });
       return;
     }
 
@@ -187,8 +210,7 @@ export default function ReceptionistHomeScreen() {
         departmentId: selectedDoc?.departmentId || profile?.departmentId || undefined,
         appointmentDate: dateFormatted,
         appointmentTime: timeFormatted,
-        appointmentType: "WALK_IN",
-        consultationMode: "OPD",
+        appointmentType: appointmentType,
         remarks: bookingReason,
       });
 
@@ -247,8 +269,20 @@ export default function ReceptionistHomeScreen() {
   const handleSaveProfile = async () => {
     try {
       setSavingProfile(true);
-      if (!selectedHospitalIdProfile || !selectedDepartmentIdProfile || !employeeCode || !joiningDate) {
-        Toast.show({ type: "error", text1: "Validation Error", text2: "Please fill all required fields." });
+      if (!selectedHospitalIdProfile) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please select a hospital." });
+        return;
+      }
+      if (!selectedDepartmentIdProfile) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please select a department." });
+        return;
+      }
+      if (!employeeCode || !employeeCode.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your employee code." });
+        return;
+      }
+      if (!joiningDate || !joiningDate.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your joining date." });
         return;
       }
       let dateFormatted = joiningDate.trim();
@@ -279,6 +313,64 @@ export default function ReceptionistHomeScreen() {
     }
   };
 
+  const openEditModal = async () => {
+    if (!profile) return;
+    setEditEmployeeCode(profile.employeeCode || "");
+    setEditShift(profile.shift || "MORNING");
+    setEditJoiningDate(profile.joiningDate || "");
+    setEditHospitalId(profile.hospitalId || "");
+    const allHospitals = await getAllHospitals();
+    setHospitals(allHospitals.content);
+    if (profile.hospitalId) {
+      try {
+        const depts = await getDepartmentsByHospital(profile.hospitalId);
+        setEditDepartments(depts);
+        setEditDepartmentId(profile.departmentId || (depts.length > 0 ? depts[0].id : ""));
+      } catch { }
+    }
+    setShowEditModal(true);
+  };
+
+  const handleEditProfile = async () => {
+    if (!profile) return;
+    if (!editEmployeeCode.trim()) { Toast.show({ type: "error", text1: "Validation", text2: "Employee code is required." }); return; }
+    try {
+      setSavingEdit(true);
+      let dateFormatted = editJoiningDate.trim();
+      if (dateFormatted.includes("-")) {
+        const parts = dateFormatted.split("-");
+        if (parts.length === 3) {
+          dateFormatted = `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+        }
+      }
+      await updateReceptionistProfile(profile.id, {
+        accountId: sessionUser.id,
+        hospitalId: editHospitalId || profile.hospitalId,
+        departmentId: editDepartmentId || profile.departmentId,
+        employeeCode: editEmployeeCode.trim(),
+        shift: editShift,
+        joiningDate: dateFormatted || profile.joiningDate,
+      });
+      Toast.show({ type: "success", text1: "Profile Updated!" });
+      setShowEditModal(false);
+      loadData();
+    } catch (err: any) {
+      Toast.show({ type: "error", text1: "Update Failed", text2: err?.response?.data?.message || err?.message || "Please try again." });
+    } finally { setSavingEdit(false); }
+  };
+
+  const handleCancelAppointment = async (apptId: string) => {
+    try {
+      setCancellingApptId(apptId);
+      await deleteAppointment(apptId);
+      Toast.show({ type: "success", text1: "Appointment Cancelled" });
+      const appts = await getTodayAppointments();
+      setTodayAppointments(appts);
+    } catch (err: any) {
+      Toast.show({ type: "error", text1: "Cancel Failed", text2: err?.response?.data?.message || err?.message || "Failed to cancel." });
+    } finally { setCancellingApptId(null); }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -299,31 +391,48 @@ export default function ReceptionistHomeScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
           <View style={styles.header}>
-            <View style={styles.headerInfo}>
-              <Text style={styles.portalBadge}>📋 RECEPTION DESK</Text>
-              <Text style={styles.welcomeTitle}>
-                {profile ? `${profile.accountName} 📋` : "Receptionist 👋"}
-              </Text>
-              <Text style={styles.userEmail}>{sessionUser?.email || "reception@healthnexus.com"}</Text>
-              {profile && (
-                <View style={styles.profileMeta}>
-                  <Text style={styles.metaText}>Emp Code: {profile.employeeCode}</Text>
-                  <Text style={styles.metaText}>{profile.hospitalName}</Text>
-                  <Text style={styles.metaText}>{profile.departmentName}</Text>
-                </View>
-              )}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                <Ionicons name="arrow-back" size={20} color="#64748B" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={loadData} style={styles.iconBtn}>
+                <Ionicons name="refresh" size={20} color="#64748B" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-              <Ionicons name="log-out-outline" size={16} color="#C4B5FD" />
-              <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+              <View style={styles.headerInfo}>
+                <Text style={styles.portalBadge}>📋 RECEPTION DESK</Text>
+                <Text style={styles.welcomeTitle}>
+                  {profile ? `${profile.accountName} 📋` : "Receptionist 👋"}
+                </Text>
+                <Text style={styles.userEmail}>{sessionUser?.email || "reception@healthnexus.com"}</Text>
+                {profile && (
+                  <View style={styles.profileMeta}>
+                    <Text style={styles.metaText}>Emp Code: {profile.employeeCode}</Text>
+                    <Text style={styles.metaText}>{profile.hospitalName}</Text>
+                    <Text style={styles.metaText}>{profile.departmentName}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ alignItems: "flex-end", gap: 8 }}>
+                {profile && (
+                  <TouchableOpacity style={styles.editProfileBtn} onPress={openEditModal}>
+                    <Ionicons name="create-outline" size={14} color="#0F172A" />
+                    <Text style={styles.editProfileText}>Edit Profile</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+                  <Ionicons name="log-out-outline" size={16} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
 
           {needsProfile ? (
             <View style={styles.formCard}>
               <Text style={styles.sectionTitle}>Complete Your Profile</Text>
               <Text style={[styles.emptyText, { marginBottom: 16 }]}>Please fill in your professional details to proceed.</Text>
-              
+
               <View style={{ marginBottom: 16 }}>
                 <Text style={styles.fieldLabel}>Select Hospital *</Text>
                 <View style={styles.pickerWrapper}>
@@ -345,7 +454,7 @@ export default function ReceptionistHomeScreen() {
               </View>
 
               <CustomInput label="Employee Code *" placeholder="e.g. REC-101" value={employeeCode} onChangeText={setEmployeeCode} maxLength={20} darkTheme={true} />
-              
+
               <View style={{ marginBottom: 16 }}>
                 <Text style={styles.fieldLabel}>Shift *</Text>
                 <View style={styles.pickerWrapper}>
@@ -357,8 +466,8 @@ export default function ReceptionistHomeScreen() {
                 </View>
               </View>
 
-              <CustomInput label="Joining Date (YYYY-MM-DD) *" placeholder="2026-08-05" value={joiningDate} onChangeText={setJoiningDate} darkTheme={true} />
-              
+              <CustomInput label="Joining Date *" value={joiningDate} onChangeText={setJoiningDate} darkTheme={true} {...{ type: "date" } as any} />
+
               <PrimaryButton title="Save Profile" onPress={handleSaveProfile} loading={savingProfile} style={{ marginTop: 20, backgroundColor: "#8B5CF6" }} />
             </View>
           ) : (
@@ -387,13 +496,26 @@ export default function ReceptionistHomeScreen() {
                             Time: {appt.appointmentTime} | Type: {appt.appointmentType}
                           </Text>
                         </View>
-                        <TouchableOpacity
-                          style={[styles.editProfileBtn, { backgroundColor: "rgba(13, 110, 253, 0.1)", borderColor: "rgba(13, 110, 253, 0.3)" }]}
-                          onPress={() => handleCheckIn(appt.id)}
-                          disabled={loading}
-                        >
-                          <Text style={[styles.editProfileText, { color: "#0D6EFD" }]}>Check In</Text>
-                        </TouchableOpacity>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <TouchableOpacity
+                            style={[styles.editProfileBtn, { backgroundColor: "rgba(220, 38, 38, 0.1)", borderColor: "rgba(220, 38, 38, 0.3)" }]}
+                            onPress={() => handleCancelAppointment(appt.id)}
+                            disabled={cancellingApptId === appt.id}
+                          >
+                            {cancellingApptId === appt.id ? (
+                              <ActivityIndicator size="small" color="#DC2626" />
+                            ) : (
+                              <Text style={[styles.editProfileText, { color: "#DC2626" }]}>Cancel</Text>
+                            )}
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.editProfileBtn, { backgroundColor: "rgba(13, 110, 253, 0.1)", borderColor: "rgba(13, 110, 253, 0.3)" }]}
+                            onPress={() => handleCheckIn(appt.id)}
+                            disabled={loading}
+                          >
+                            <Text style={[styles.editProfileText, { color: "#0D6EFD" }]}>Check In</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -503,19 +625,19 @@ export default function ReceptionistHomeScreen() {
               </View>
 
               <CustomInput
-                label="Appointment Date (yyyy-MM-dd) *"
-                placeholder="2026-08-05"
+                label="Appointment Date *"
                 value={bookingDate}
                 onChangeText={setBookingDate}
                 darkTheme={true}
+                {...{ type: "date" } as any}
               />
 
               <CustomInput
-                label="Appointment Time (HH:mm:ss) *"
-                placeholder="10:30:00"
+                label="Appointment Time *"
                 value={bookingTime}
                 onChangeText={setBookingTime}
                 darkTheme={true}
+                {...{ type: "time" } as any}
               />
 
               <CustomInput
@@ -525,6 +647,21 @@ export default function ReceptionistHomeScreen() {
                 onChangeText={setBookingReason}
                 darkTheme={true}
               />
+
+              <View style={{ marginBottom: 16 }}>
+                <Text style={styles.fieldLabel}>Appointment Type *</Text>
+                <View style={styles.pickerWrapper}>
+                  <Picker
+                    selectedValue={appointmentType}
+                    onValueChange={(val: any) => setAppointmentType(val)}
+                    dropdownIconColor="#64748B"
+                    style={{ color: "#0F172A", height: 50, borderWidth: 0, backgroundColor: "transparent", outlineStyle: 'none' } as any}
+                  >
+                    <Picker.Item label="Walk-In" value="WALK_IN" color="#0F172A" />
+                    <Picker.Item label="Online" value="ONLINE" color="#0F172A" />
+                  </Picker>
+                </View>
+              </View>
 
               <View style={styles.modalButtonRow}>
                 <TouchableOpacity
@@ -545,6 +682,64 @@ export default function ReceptionistHomeScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Edit Profile Modal */}
+        <Modal visible={showEditModal} transparent={true} animationType="slide" onRequestClose={() => setShowEditModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Edit Profile</Text>
+                <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.modalCloseIconBtn}>
+                  <Ionicons name="close" size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ maxHeight: 500, marginTop: 10 }}>
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={styles.fieldLabel}>Hospital</Text>
+                  <View style={styles.pickerWrapper}>
+                    <Picker selectedValue={editHospitalId} onValueChange={(val) => { setEditHospitalId(val); getDepartmentsByHospital(val).then(d => { setEditDepartments(d); setEditDepartmentId(d.length > 0 ? d[0].id : ""); }).catch(() => { }); }} style={{ height: 50, borderWidth: 0, outlineStyle: 'none' } as any}>
+                      <Picker.Item label="-- Select Hospital --" value="" />
+                      {hospitals.map(h => <Picker.Item key={h.id} label={h.hospitalName} value={h.id} />)}
+                    </Picker>
+                  </View>
+                </View>
+
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={styles.fieldLabel}>Department</Text>
+                  <View style={styles.pickerWrapper}>
+                    <Picker selectedValue={editDepartmentId} onValueChange={setEditDepartmentId} style={{ height: 50, borderWidth: 0, outlineStyle: 'none' } as any}>
+                      <Picker.Item label="-- Select Department --" value="" />
+                      {editDepartments.map(d => <Picker.Item key={d.id} label={d.departmentName} value={d.id} />)}
+                    </Picker>
+                  </View>
+                </View>
+
+                <CustomInput label="Employee Code *" value={editEmployeeCode} onChangeText={setEditEmployeeCode} />
+
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={styles.fieldLabel}>Shift</Text>
+                  <View style={styles.pickerWrapper}>
+                    <Picker selectedValue={editShift} onValueChange={setEditShift} style={{ height: 50, borderWidth: 0, outlineStyle: 'none' } as any}>
+                      <Picker.Item label="Morning" value="MORNING" />
+                      <Picker.Item label="Evening" value="EVENING" />
+                      <Picker.Item label="Night" value="NIGHT" />
+                    </Picker>
+                  </View>
+                </View>
+
+                <CustomInput label="Joining Date" value={editJoiningDate} onChangeText={setEditJoiningDate} {...{ type: "date" } as any} />
+
+                <View style={styles.modalButtonRow}>
+                  <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.modalCancelBtn}>
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <PrimaryButton title="Save Changes" onPress={handleEditProfile} loading={savingEdit} style={{ paddingHorizontal: 20 }} />
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </LinearGradient>
     </SafeAreaView>
   );
@@ -556,20 +751,24 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 22, maxWidth: 640, alignSelf: "center", width: "100%" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F8FAFC" },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
     backgroundColor: "rgba(255, 255, 255, 0.7)",
-    padding: 20,
-    borderRadius: 22,
+    padding: 24,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(167, 139, 250, 0.5)",
+    borderColor: "rgba(255, 255, 255, 1)",
     marginBottom: 20,
     shadowColor: "#94A3B8",
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.15,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  iconBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
   },
   headerInfo: { flex: 1 },
   portalBadge: { fontSize: 12, fontWeight: "800", color: "#C4B5FD", marginBottom: 4, letterSpacing: 0.5 },

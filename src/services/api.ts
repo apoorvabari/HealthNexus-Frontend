@@ -1,8 +1,8 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
-import { getAuthToken, clearSession } from "../storage/AuthStorage";
+import { getAuthToken, clearSession, getUserSession } from "../storage/AuthStorage";
 import { router } from "expo-router";
 
-const API_BASE_URL = "http://localhost:8081";
+const API_BASE_URL = "http://localhost:8080";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -30,9 +30,17 @@ api.interceptors.response.use(
   },
   async (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      const session = await getUserSession();
+      const roleStr = session?.role?.toLowerCase();
       await clearSession();
       if (router && typeof router.replace === "function") {
-          setTimeout(() => router.replace("/login"), 0);
+          setTimeout(() => {
+            if (roleStr) {
+              router.replace(`/login?role=${roleStr}`);
+            } else {
+              router.replace("/login");
+            }
+          }, 0);
       }
     }
     return Promise.reject(error);

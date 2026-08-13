@@ -10,8 +10,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
 import { getUserSession } from "../../src/storage/AuthStorage";
-import { getAllPatients, PatientResponse, createPatientProfile, updatePatientProfile } from "../../src/services/PatientService";
-import { getAppointmentsByPatient, AppointmentResponse, createAppointment } from "../../src/services/AppointmentService";
+import { getPatientByAccountId, PatientResponse, createPatientProfile, updatePatientProfile } from "../../src/services/PatientService";
+import { getAppointmentsByPatient, AppointmentResponse, createAppointment, deleteAppointment } from "../../src/services/AppointmentService";
 import { getAllDoctors, DoctorResponse } from "../../src/services/DoctorService";
 import { getAllHospitals, HospitalResponse } from "../../src/services/HospitalService";
 import CustomInput from "../../src/components/inputs/CustomInput";
@@ -49,6 +49,7 @@ export default function PatientHomeScreen() {
   const [bookingTime, setBookingTime] = useState("");
   const [bookingReason, setBookingReason] = useState("");
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const handleLogout = () => {
     router.push("/logout?role=patient");
@@ -60,26 +61,29 @@ export default function PatientHomeScreen() {
       const session = await getUserSession();
       setSessionUser(session);
 
-      if (session?.email) {
-        const patientList = await getAllPatients();
-        const foundProfile = patientList.find(p => p.accountId === session.id);
-        if (foundProfile) {
+      if (session?.id) {
+        try {
+          const foundProfile = await getPatientByAccountId(session.id);
           setProfile(foundProfile);
           const patientAppts = await getAppointmentsByPatient(foundProfile.id);
           setAppointments(patientAppts);
           setNeedsProfile(false);
-        } else {
-          setNeedsProfile(true);
-          const data = await getAllHospitals();
-          setHospitals(data);
-          if (data.length > 0) {
-            setSelectedHospitalId(data[0].id);
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            setNeedsProfile(true);
+            const data = await getAllHospitals();
+            setHospitals(data.content);
+            if (data.content.length > 0) {
+              setSelectedHospitalId(data.content[0].id);
+            }
+          } else {
+            throw err;
           }
         }
       }
 
       const docList = await getAllDoctors();
-      setDoctors(docList);
+      setDoctors(docList.content);
     } catch (err: any) {
       Toast.show({
         type: "error",
@@ -118,8 +122,44 @@ export default function PatientHomeScreen() {
       const phoneRegex = /^[0-9]{10}$/;
       const postalRegex = /^[0-9]{6}$/;
 
-      if (!selectedHospitalId || !patientCode || !dateOfBirth || !emergencyContactName || !emergencyContactPhone || !relationship || !address || !city || !state || !postalCode) {
-        Toast.show({ type: "error", text1: "Validation Error", text2: "All fields are required." });
+      if (!selectedHospitalId) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please select a hospital." });
+        return;
+      }
+      if (!patientCode || !patientCode.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your patient code." });
+        return;
+      }
+      if (!dateOfBirth || !dateOfBirth.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your date of birth." });
+        return;
+      }
+      if (!emergencyContactName || !emergencyContactName.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter emergency contact name." });
+        return;
+      }
+      if (!emergencyContactPhone || !emergencyContactPhone.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter emergency contact phone." });
+        return;
+      }
+      if (!relationship || !relationship.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter relationship with emergency contact." });
+        return;
+      }
+      if (!address || !address.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your address." });
+        return;
+      }
+      if (!city || !city.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your city." });
+        return;
+      }
+      if (!state || !state.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your state." });
+        return;
+      }
+      if (!postalCode || !postalCode.trim()) {
+        Toast.show({ type: "error", text1: "Validation Error", text2: "Please enter your postal code." });
         return;
       }
 
@@ -181,14 +221,31 @@ export default function PatientHomeScreen() {
     }
   };
 
+  const handleCancelAppointment = async (apptId: string) => {
+    try {
+      setCancellingId(apptId);
+      await deleteAppointment(apptId);
+      Toast.show({ type: "success", text1: "Appointment Cancelled", text2: "Your appointment has been cancelled." });
+      setAppointments(prev => prev.filter(a => a.id !== apptId));
+    } catch (err: any) {
+      Toast.show({ type: "error", text1: "Cancel Failed", text2: err?.response?.data?.message || err?.message || "Unable to cancel appointment." });
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const handleCreateAppointment = async () => {
     if (!profile) return;
-    if (!bookingDoctorId || !bookingDate || !bookingTime) {
-      Toast.show({
-        type: "error",
-        text1: "Validation Error",
-        text2: "Please fill in all mandatory appointment fields.",
-      });
+    if (!bookingDoctorId) {
+      Toast.show({ type: "error", text1: "Validation Error", text2: "Please select a doctor." });
+      return;
+    }
+    if (!bookingDate) {
+      Toast.show({ type: "error", text1: "Validation Error", text2: "Please select an appointment date." });
+      return;
+    }
+    if (!bookingTime) {
+      Toast.show({ type: "error", text1: "Validation Error", text2: "Please select an appointment time." });
       return;
     }
 
@@ -227,7 +284,6 @@ export default function PatientHomeScreen() {
         appointmentDate: dateFormatted,
         appointmentTime: timeFormatted,
         appointmentType: "ONLINE",
-        consultationMode: "OPD",
         remarks: bookingReason,
       });
 
@@ -289,25 +345,32 @@ export default function PatientHomeScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
           <View style={styles.header}>
-            <View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                <Ionicons name="arrow-back" size={20} color="#64748B" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={loadData} style={styles.iconBtn}>
+                <Ionicons name="refresh" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ alignItems: "center" }}>
               <Text style={styles.portalBadge}>🩺 PATIENT PORTAL</Text>
               <Text style={styles.welcomeTitle}>
                 {profile ? `${profile.accountName} 🩺` : "Patient 👋"}
               </Text>
-              <Text style={styles.userEmail}>{sessionUser?.email || "patient@healthnexus.com"}</Text>
-              {profile && (
-                <View style={styles.profileMeta}>
-                  <Text style={styles.metaText}>Code: {profile.patientCode}</Text>
-                  <Text style={styles.metaText}>Blood: {profile.bloodGroup}</Text>
-                  <Text style={styles.metaText}>Gender: {profile.gender}</Text>
-                </View>
-              )}
             </View>
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-              <Ionicons name="log-out-outline" size={16} color="#0284C7" />
-              <Text style={styles.logoutText}>Logout</Text>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+              <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             </TouchableOpacity>
           </View>
+          
+          {profile && (
+            <View style={styles.profileMeta}>
+              <Text style={styles.metaText}>Code: {profile.patientCode}</Text>
+              <Text style={styles.metaText}>Blood: {profile.bloodGroup}</Text>
+              <Text style={styles.metaText}>Gender: {profile.gender}</Text>
+            </View>
+          )}
 
           {needsProfile ? (
             <View style={styles.formCard}>
@@ -352,7 +415,7 @@ export default function PatientHomeScreen() {
                 </View>
               </View>
 
-              <CustomInput label="Date of Birth (YYYY-MM-DD) *" placeholder="2000-01-15" value={dateOfBirth} onChangeText={setDateOfBirth} darkTheme={true} />
+              <CustomInput label="Date of Birth *" value={dateOfBirth} onChangeText={setDateOfBirth} darkTheme={true} {...{ type: "date" } as any} />
               
               <View style={styles.formDivider} />
               <Text style={styles.sectionHeader}>Emergency Contact</Text>
@@ -371,12 +434,14 @@ export default function PatientHomeScreen() {
               <Text style={styles.fieldLabel}>Postal Code (6 digits) *</Text>
               <TextInput style={styles.textInput} placeholder="Postal Code" placeholderTextColor="#94A3B8" value={postalCode} onChangeText={setPostalCode} keyboardType="numeric" maxLength={6} />
 
-              <PrimaryButton title={isEditing ? "Update Profile" : "Save Profile"} onPress={handleSaveProfile} loading={savingProfile} style={{ marginTop: 20, backgroundColor: "#34D399" }} />
-              {isEditing && (
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setNeedsProfile(false); setIsEditing(false); }}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              )}
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
+                <PrimaryButton title="Save Profile" onPress={handleSaveProfile} loading={savingProfile} style={{ flex: 1 }} />
+                {isEditing && (
+                  <TouchableOpacity style={[styles.cancelBtn, { flex: 1, justifyContent: "center" }]} onPress={() => { setNeedsProfile(false); setIsEditing(false); }}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           ) : (
             <>
@@ -418,13 +483,28 @@ export default function PatientHomeScreen() {
                     <View key={appt.id} style={styles.apptCard}>
                       <View style={styles.cardHeader}>
                         <Text style={styles.doctorName}>Dr. {appt.doctorName}</Text>
-                        <Text style={styles.apptStatus}>{appt.appointmentStatus}</Text>
+                        <Text style={[styles.apptStatus, appt.appointmentStatus === "CANCELLED" ? styles.apptStatusCancelled : appt.appointmentStatus === "COMPLETED" ? styles.apptStatusCompleted : {}]}>
+                          {appt.appointmentStatus}
+                        </Text>
                       </View>
                       <Text style={styles.deptName}>{appt.departmentName} • {appt.hospitalName}</Text>
                       <View style={styles.metaRow}>
                         <Text style={styles.dateText}>📅 {appt.appointmentDate}</Text>
                         <Text style={styles.timeText}>⏰ {appt.appointmentTime}</Text>
                       </View>
+                      {(appt.appointmentStatus === "SCHEDULED" || appt.appointmentStatus === "CHECKED_IN") && (
+                        <TouchableOpacity
+                          style={styles.cancelApptBtn}
+                          onPress={() => handleCancelAppointment(appt.id)}
+                          disabled={cancellingId === appt.id}
+                          activeOpacity={0.8}
+                        >
+                          {cancellingId === appt.id
+                            ? <ActivityIndicator size="small" color="#EF4444" />
+                            : <Text style={styles.cancelApptBtnText}>✕ Cancel Appointment</Text>
+                          }
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -471,19 +551,19 @@ export default function PatientHomeScreen() {
               </View>
 
               <CustomInput
-                label="Date (YYYY-MM-DD) *"
-                placeholder="2026-08-05"
+                label="Date *"
                 value={bookingDate}
                 onChangeText={setBookingDate}
                 darkTheme={true}
+                {...{ type: "date" } as any}
               />
 
               <CustomInput
-                label="Time (HH:mm) *"
-                placeholder="10:30"
+                label="Time *"
                 value={bookingTime}
                 onChangeText={setBookingTime}
                 darkTheme={true}
+                {...{ type: "time" } as any}
               />
 
               <CustomInput
@@ -539,6 +619,13 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 6,
   },
+  iconBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.05)",
+  },
   portalBadge: { fontSize: 12, fontWeight: "800", color: "#34D399", marginBottom: 4, letterSpacing: 0.5 },
   welcomeTitle: { fontSize: 24, fontWeight: "800", color: "#0F172A" },
   userEmail: { fontSize: 13, color: "#475569", marginTop: 2 },
@@ -578,9 +665,13 @@ const styles = StyleSheet.create({
   doctorName: { fontSize: 17, fontWeight: "800", color: "#0F172A" },
   apptStatus: { fontSize: 12, fontWeight: "800", color: "#34D399", backgroundColor: "rgba(16, 185, 129, 0.1)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: "rgba(52, 211, 153, 0.3)" },
   deptName: { fontSize: 13, color: "#475569", marginBottom: 12 },
-  metaRow: { flexDirection: "row", gap: 16 },
+  metaRow: { flexDirection: "row", gap: 16, marginTop: 4 },
   dateText: { fontSize: 12, color: "#64748B", fontWeight: "600" },
   timeText: { fontSize: 12, color: "#64748B", fontWeight: "600" },
+  cancelApptBtn: { marginTop: 12, borderWidth: 1, borderColor: "rgba(239,68,68,0.4)", borderRadius: 10, paddingVertical: 8, alignItems: "center", backgroundColor: "rgba(239,68,68,0.06)" },
+  cancelApptBtnText: { color: "#EF4444", fontSize: 13, fontWeight: "700" },
+  apptStatusCancelled: { color: "#EF4444", backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)" },
+  apptStatusCompleted: { color: "#34D399", backgroundColor: "rgba(16,185,129,0.1)", borderColor: "rgba(52,211,153,0.3)" },
   formCard: { backgroundColor: "rgba(255, 255, 255, 0.7)", borderRadius: 20, padding: 20, borderWidth: 1, borderColor: "rgba(52, 211, 153, 0.5)", shadowColor: "#94A3B8", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8, marginBottom: 20 },
   sectionHeader: { fontSize: 16, fontWeight: "800", color: "#34D399", marginTop: 10, marginBottom: 14 },
   formDivider: { height: 1, backgroundColor: "rgba(0, 0, 0, 0.05)", marginVertical: 18 },

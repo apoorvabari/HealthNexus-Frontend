@@ -24,3 +24,22 @@ export const logout = async (userEmail?: string): Promise<any> => {
   }
 };
 
+export interface UserResponse {
+  id: string;
+  userId?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role?: string;
+  isActive?: boolean;
+  isDeleted?: boolean;
+  lastLogin?: string;
+  [key: string]: any;
+}
+
+import { PageResponse } from "./AdminService";
+
+export const getAllUsers = async (search = "", page = 0, size = 10): Promise<PageResponse<UserResponse>> => {
+  const response = await api.get<PageResponse<UserResponse>>(`/api/users?search=${search}&page=${page}&size=${size}`);
+  return response.data;
+};

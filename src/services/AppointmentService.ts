@@ -41,8 +41,8 @@ export const createAppointment = async (data: AppointmentRequest): Promise<Appoi
   const payload = {
     ...data,
     remarks: data.remarks || data.reasonForVisit,
-    appointmentType: data.appointmentType || "CONSULTATION",
-    consultationMode: data.consultationMode || "IN_PERSON",
+    appointmentType: data.appointmentType || "WALK_IN",
+    consultationMode: data.consultationMode || "OPD",
   };
   const response = await api.post<AppointmentResponse>("/api/appointments", payload);
   return response.data;
