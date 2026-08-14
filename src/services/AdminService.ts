@@ -10,8 +10,55 @@ export interface AnalyticsResponse {
   appointmentsToday: number;
 }
 
+export interface AdminDashboardStatsResponse {
+  // Doctors
+  totalDoctors: number;
+  pendingDoctors: number;
+  approvedDoctors: number;
+  rejectedDoctors: number;
+
+  // Hospitals / Clinics
+  totalHospitals: number;
+  pendingHospitals: number;
+  approvedHospitals: number;
+  rejectedHospitals: number;
+
+  // Users
+  totalUsers: number;
+  activeUsers: number;
+  deletedUsers: number;
+}
+
 export interface StatusUpdateRequest {
   status: string;
+}
+
+export type HospitalVerificationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
+
+export interface HospitalVerificationRequest {
+  verificationStatus: HospitalVerificationStatus;
+
+  detailsVerified: boolean;
+
+  locationVerified: boolean;
+
+  verificationRemarks?: string;
+}
+
+export type DoctorVerificationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED";
+
+export interface DoctorVerificationRequest {
+  verificationStatus: DoctorVerificationStatus;
+  licenseVerified: boolean;
+  degreeVerified: boolean;
+  specializationVerified: boolean;
+  verificationRemarks?: string;
 }
 
 export interface SystemSettingsResponse {
@@ -43,6 +90,15 @@ export const getPlatformAnalytics = async (): Promise<AnalyticsResponse> => {
   return response.data;
 };
 
+export const getDashboardStats =
+  async (): Promise<AdminDashboardStatsResponse> => {
+    const response = await api.get<AdminDashboardStatsResponse>(
+      "/api/admin/dashboard/stats"
+    );
+
+    return response.data;
+  };
+
 export const updateDoctorStatus = async (
   id: string,
   request: StatusUpdateRequest
@@ -54,6 +110,18 @@ export const updateDoctorStatus = async (
   return response.data;
 };
 
+export const updateDoctorVerification = async (
+  id: string,
+  request: DoctorVerificationRequest
+): Promise<DoctorResponse> => {
+  const response = await api.put<DoctorResponse>(
+    `/api/admin/doctors/${id}/verification`,
+    request
+  );
+
+  return response.data;
+};
+
 export const updateHospitalStatus = async (
   id: string,
   request: StatusUpdateRequest
@@ -62,6 +130,18 @@ export const updateHospitalStatus = async (
     `/api/admin/hospitals/${id}/status`,
     request
   );
+  return response.data;
+};
+
+export const updateHospitalVerification = async (
+  id: string,
+  request: HospitalVerificationRequest
+): Promise<HospitalResponse> => {
+  const response = await api.put<HospitalResponse>(
+    `/api/admin/hospitals/${id}/verification`,
+    request
+  );
+
   return response.data;
 };
 

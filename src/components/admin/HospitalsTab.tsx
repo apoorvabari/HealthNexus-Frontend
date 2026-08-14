@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { getAllHospitals, HospitalResponse, createHospital, updateHospital, deleteHospital } from "../../services/HospitalService";
-import { updateHospitalStatus } from "../../services/AdminService";
+import {
+  updateHospitalVerification,
+  HospitalVerificationStatus,
+} from "../../services/AdminService";
 import PrimaryButton from "../buttons/PrimaryButton";
 import CustomInput from "../inputs/CustomInput";
 import { Picker } from "@react-native-picker/picker";
@@ -40,7 +43,12 @@ export default function HospitalsTab() {
   const [selectedHospital, setSelectedHospital] = useState<HospitalResponse | null>(null);
   const [verifyDetails, setVerifyDetails] = useState(false);
   const [verifyLocation, setVerifyLocation] = useState(false);
-  const [newStatus, setNewStatus] = useState("ACTIVE");
+
+  const [verificationStatus, setVerificationStatus] =
+    useState<HospitalVerificationStatus>("PENDING");
+
+  const [verificationRemarks, setVerificationRemarks] =
+    useState("");
 
   useEffect(() => {
     fetchHospitals(searchQuery, page);
@@ -70,22 +78,36 @@ export default function HospitalsTab() {
 
   const openAdd = () => {
     setHId(""); setHName(""); setHEmail(""); setHPhone(""); setHAddress("");
-    setHCity(""); setHState(""); setHPin(""); setHRegNo(""); setHType("GENERAL");
+    setHCity(""); setHState(""); setHPin(""); setHRegNo(""); setHType("CLINIC");
     setShowManageModal(true);
   };
 
   const openEdit = (h: HospitalResponse) => {
     setHId(h.id); setHName(h.hospitalName || ""); setHEmail(h.email || ""); setHPhone(h.phoneNumber || "");
     setHAddress(h.address || ""); setHCity(h.city || ""); setHState(h.state || "");
-    setHPin(h.postalCode || ""); setHRegNo(h.registrationNumber || ""); setHType(h.hospitalType || "GENERAL");
+    setHPin(h.postalCode || ""); setHRegNo(h.registrationNumber || ""); setHType(h.hospitalType || "CLINIC");
     setShowManageModal(true);
   };
 
   const openVerify = (h: HospitalResponse) => {
     setSelectedHospital(h);
-    setVerifyDetails(false);
-    setVerifyLocation(false);
-    setNewStatus(h.status || "APPROVED");
+
+    setVerifyDetails(
+      h.detailsVerified ?? false
+    );
+
+    setVerifyLocation(
+      h.locationVerified ?? false
+    );
+
+    setVerificationStatus(
+      h.verificationStatus || "PENDING"
+    );
+
+    setVerificationRemarks(
+      h.verificationRemarks || ""
+    );
+
     setShowVerifyModal(true);
   };
 
@@ -117,20 +139,85 @@ export default function HospitalsTab() {
     }
   };
 
-  const handleUpdateStatus = async () => {
-    if (!selectedHospital) return;
-    if (newStatus === "APPROVED" && (!verifyDetails || !verifyLocation)) {
-      Toast.show({ type: "error", text1: "Validation Error", text2: "All checks must be verified to approve." });
+  const handleUpdateVerification = async () => {
+    if (!selectedHospital) {
       return;
     }
+
+    if (
+      verificationStatus === "APPROVED" &&
+      (!verifyDetails || !verifyLocation)
+    ) {
+      Toast.show({
+        type: "error",
+        text1: "Cannot Approve Clinic",
+        text2:
+          "Clinic details and location must both be verified.",
+      });
+
+      return;
+    }
+
+    if (
+      verificationStatus === "REJECTED" &&
+      !verificationRemarks.trim()
+    ) {
+      Toast.show({
+        type: "error",
+        text1: "Rejection Reason Required",
+        text2:
+          "Please provide a reason for rejecting the clinic.",
+      });
+
+      return;
+    }
+
     try {
       setSaving(true);
-      await updateHospitalStatus(selectedHospital.id, { status: newStatus });
-      Toast.show({ type: "success", text1: "Status Updated", text2: `Hospital is now ${newStatus}` });
+
+      await updateHospitalVerification(
+        selectedHospital.id,
+        {
+          verificationStatus,
+
+          detailsVerified: verifyDetails,
+
+          locationVerified: verifyLocation,
+
+          verificationRemarks:
+            verificationRemarks.trim() || undefined,
+        }
+      );
+
+      Toast.show({
+        type: "success",
+        text1: "Verification Updated",
+        text2:
+          verificationStatus === "APPROVED"
+            ? "Clinic approved successfully."
+            : verificationStatus === "REJECTED"
+              ? "Clinic rejected successfully."
+              : "Verification progress saved.",
+      });
+
       setShowVerifyModal(false);
-      fetchHospitals(searchQuery, page);
+
+      await fetchHospitals(
+        searchQuery,
+        page
+      );
+
     } catch (err: any) {
-      Toast.show({ type: "error", text1: "Update Failed", text2: err.message });
+
+      Toast.show({
+        type: "error",
+        text1: "Verification Failed",
+        text2:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Unable to update clinic verification.",
+      });
+
     } finally {
       setSaving(false);
     }
@@ -156,9 +243,9 @@ export default function HospitalsTab() {
         </TouchableOpacity>
       </View>
 
-      <SearchBar 
-        value={searchQuery} 
-        onChangeText={setSearchQuery} 
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
         placeholder="Search clinics by name, city, or state..."
       />
 
@@ -170,7 +257,9 @@ export default function HospitalsTab() {
         </View>
       ) : (
         hospitals.map(h => {
-          const statusStyle = getStatusStyle(h.status || "PENDING");
+          const statusStyle = getStatusStyle(
+            h.verificationStatus || "PENDING"
+          );
           return (
             <View key={h.id} style={[styles.listItem, { borderLeftColor: AdminTheme.success, borderLeftWidth: 4 }]}>
               <View style={styles.listItemContent}>
@@ -179,7 +268,7 @@ export default function HospitalsTab() {
                 <View style={styles.badgeRow}>
                   <Text style={styles.listItemBadge2}>{h.hospitalType}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{h.status || "PENDING"}</Text>
+                    <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{h.verificationStatus || "PENDING"}</Text>
                   </View>
                 </View>
               </View>
@@ -209,60 +298,348 @@ export default function HospitalsTab() {
       )}
 
       {/* VERIFY MODAL */}
-      <Modal visible={showVerifyModal} transparent animationType="slide" onRequestClose={() => setShowVerifyModal(false)}>
+      {/* VERIFY CLINIC MODAL */}
+      <Modal
+        visible={showVerifyModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowVerifyModal(false)}
+      >
         <View style={styles.modalOverlay}>
+
           <View style={styles.modalContainer}>
+
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Verify Clinic</Text>
-              <TouchableOpacity onPress={() => setShowVerifyModal(false)}><Ionicons name="close" size={24} color="#64748B" /></TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                Verify Clinic
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => setShowVerifyModal(false)}
+              >
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color="#64748B"
+                />
+              </TouchableOpacity>
             </View>
-            
-            <ScrollView style={{ maxHeight: 500 }}>
+
+            <ScrollView
+              style={{ maxHeight: 550 }}
+              showsVerticalScrollIndicator={false}
+            >
+
+              {/* CLINIC DETAILS */}
               {selectedHospital && (
                 <View style={styles.detailsCard}>
-                  <Text style={styles.detailText}>Name: {selectedHospital.hospitalName}</Text>
-                  <Text style={styles.detailText}>Reg No: {selectedHospital.registrationNumber || "N/A"}</Text>
-                  <Text style={styles.detailText}>Address: {selectedHospital.address}, {selectedHospital.city}, {selectedHospital.state}</Text>
-                  <Text style={styles.detailText}>Type: {selectedHospital.hospitalType || "GENERAL"}</Text>
+
+                  <Text style={styles.detailTitle}>
+                    Clinic Information
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    Name: {selectedHospital.hospitalName}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    Registration No:{" "}
+                    {selectedHospital.registrationNumber || "N/A"}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    Email:{" "}
+                    {selectedHospital.email || "N/A"}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    Phone:{" "}
+                    {selectedHospital.phoneNumber || "N/A"}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    Type:{" "}
+                    {selectedHospital.hospitalType || "N/A"}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    Address:{" "}
+                    {selectedHospital.address || "N/A"}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    City:{" "}
+                    {selectedHospital.city || "N/A"}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    State:{" "}
+                    {selectedHospital.state || "N/A"}
+                  </Text>
+
+                  <Text style={styles.detailText}>
+                    PIN:{" "}
+                    {selectedHospital.postalCode || "N/A"}
+                  </Text>
+
                 </View>
               )}
 
-              <Text style={styles.sectionLabel}>Verification Checklist</Text>
-              
-              <TouchableOpacity style={styles.checkboxRow} onPress={() => setVerifyDetails(!verifyDetails)}>
-                <Ionicons name={verifyDetails ? "checkbox" : "square-outline"} size={24} color={verifyDetails ? "#10B981" : "#94A3B8"} />
-                <Text style={styles.checkboxLabel}>Verify Clinic Details</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.checkboxRow} onPress={() => setVerifyLocation(!verifyLocation)}>
-                <Ionicons name={verifyLocation ? "checkbox" : "square-outline"} size={24} color={verifyLocation ? "#10B981" : "#94A3B8"} />
-                <Text style={styles.checkboxLabel}>Check Location</Text>
+              {/* VERIFICATION CHECKLIST */}
+              <Text style={styles.sectionLabel}>
+                Verification Checklist
+              </Text>
+
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() =>
+                  setVerifyDetails(!verifyDetails)
+                }
+              >
+                <Ionicons
+                  name={
+                    verifyDetails
+                      ? "checkbox"
+                      : "square-outline"
+                  }
+                  size={24}
+                  color={
+                    verifyDetails
+                      ? AdminTheme.success
+                      : "#94A3B8"
+                  }
+                />
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.checkboxLabel}>
+                    Verify Clinic Details
+                  </Text>
+
+                  <Text style={styles.checkboxHint}>
+                    Registration, contact and clinic information
+                  </Text>
+                </View>
               </TouchableOpacity>
 
-              <Text style={styles.sectionLabel}>Final Status</Text>
+              <TouchableOpacity
+                style={styles.checkboxRow}
+                onPress={() =>
+                  setVerifyLocation(!verifyLocation)
+                }
+              >
+                <Ionicons
+                  name={
+                    verifyLocation
+                      ? "checkbox"
+                      : "square-outline"
+                  }
+                  size={24}
+                  color={
+                    verifyLocation
+                      ? AdminTheme.success
+                      : "#94A3B8"
+                  }
+                />
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.checkboxLabel}>
+                    Check Location
+                  </Text>
+
+                  <Text style={styles.checkboxHint}>
+                    Verify clinic address and location
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* FINAL DECISION */}
+              <Text style={styles.sectionLabel}>
+                Final Decision
+              </Text>
+
               <View style={styles.statusButtonsRow}>
-                <TouchableOpacity 
-                  style={[styles.bigActionBtn, newStatus === "ACTIVE" ? { backgroundColor: AdminTheme.success } : { backgroundColor: AdminTheme.surfaceAlt, borderWidth: 1, borderColor: AdminTheme.border }]}
-                  onPress={() => setNewStatus("ACTIVE")}
+
+                {/* APPROVE */}
+                <TouchableOpacity
+                  style={[
+                    styles.bigActionBtn,
+                    verificationStatus === "APPROVED"
+                      ? {
+                        backgroundColor:
+                          AdminTheme.success,
+                      }
+                      : {
+                        backgroundColor:
+                          AdminTheme.surfaceAlt,
+                        borderWidth: 1,
+                        borderColor:
+                          AdminTheme.border,
+                      },
+                  ]}
+                  onPress={() =>
+                    setVerificationStatus("APPROVED")
+                  }
                 >
-                  <Ionicons name="checkmark-circle-outline" size={24} color={newStatus === "ACTIVE" ? "#FFF" : AdminTheme.success} />
-                  <Text style={[styles.bigActionBtnText, { color: newStatus === "ACTIVE" ? "#FFF" : AdminTheme.textPrimary }]}>Approve</Text>
+
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={24}
+                    color={
+                      verificationStatus === "APPROVED"
+                        ? "#FFF"
+                        : AdminTheme.success
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.bigActionBtnText,
+                      {
+                        color:
+                          verificationStatus === "APPROVED"
+                            ? "#FFF"
+                            : AdminTheme.textPrimary,
+                      },
+                    ]}
+                  >
+                    Approve
+                  </Text>
+
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.bigActionBtn, newStatus === "SUSPENDED" ? { backgroundColor: AdminTheme.danger } : { backgroundColor: AdminTheme.surfaceAlt, borderWidth: 1, borderColor: AdminTheme.border }]}
-                  onPress={() => setNewStatus("SUSPENDED")}
+
+                {/* REJECT */}
+                <TouchableOpacity
+                  style={[
+                    styles.bigActionBtn,
+                    verificationStatus === "REJECTED"
+                      ? {
+                        backgroundColor:
+                          AdminTheme.danger,
+                      }
+                      : {
+                        backgroundColor:
+                          AdminTheme.surfaceAlt,
+                        borderWidth: 1,
+                        borderColor:
+                          AdminTheme.border,
+                      },
+                  ]}
+                  onPress={() =>
+                    setVerificationStatus("REJECTED")
+                  }
                 >
-                  <Ionicons name="close-circle-outline" size={24} color={newStatus === "SUSPENDED" ? "#FFF" : AdminTheme.danger} />
-                  <Text style={[styles.bigActionBtnText, { color: newStatus === "SUSPENDED" ? "#FFF" : AdminTheme.textPrimary }]}>Reject</Text>
+
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={24}
+                    color={
+                      verificationStatus === "REJECTED"
+                        ? "#FFF"
+                        : AdminTheme.danger
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.bigActionBtnText,
+                      {
+                        color:
+                          verificationStatus === "REJECTED"
+                            ? "#FFF"
+                            : AdminTheme.textPrimary,
+                      },
+                    ]}
+                  >
+                    Reject
+                  </Text>
+
                 </TouchableOpacity>
+
               </View>
 
-              <View style={styles.modalActionRow}>
-                <TouchableOpacity onPress={() => setShowVerifyModal(false)} style={styles.modalCancelBtn}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
-                <PrimaryButton title="Update Status" onPress={handleUpdateStatus} loading={saving} style={{ paddingHorizontal: 20 }} />
+              {/* REMARKS */}
+              <Text style={styles.sectionLabel}>
+                Verification Remarks
+              </Text>
+
+              <TextInput
+                value={verificationRemarks}
+                onChangeText={setVerificationRemarks}
+                placeholder={
+                  verificationStatus === "REJECTED"
+                    ? "Enter reason for rejection..."
+                    : "Optional verification remarks..."
+                }
+                placeholderTextColor="#94A3B8"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                style={styles.remarksInput}
+              />
+
+              {/* SUMMARY */}
+              <View style={styles.verificationSummaryCard}>
+
+                <Text style={styles.summaryTitle}>
+                  Verification Summary
+                </Text>
+
+                <Text style={styles.summaryItem}>
+                  Clinic Details:{" "}
+                  {verifyDetails
+                    ? "Verified ✓"
+                    : "Not Verified"}
+                </Text>
+
+                <Text style={styles.summaryItem}>
+                  Location:{" "}
+                  {verifyLocation
+                    ? "Verified ✓"
+                    : "Not Verified"}
+                </Text>
+
+                <Text style={styles.summaryItem}>
+                  Decision:{" "}
+                  {verificationStatus}
+                </Text>
+
               </View>
+
+              {/* ACTIONS */}
+              <View style={styles.modalActionRow}>
+
+                <TouchableOpacity
+                  onPress={() =>
+                    setShowVerifyModal(false)
+                  }
+                  style={styles.modalCancelBtn}
+                >
+                  <Text style={styles.modalCancelText}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+
+                <PrimaryButton
+                  title={
+                    verificationStatus === "APPROVED"
+                      ? "Approve Clinic"
+                      : verificationStatus === "REJECTED"
+                        ? "Reject Clinic"
+                        : "Save Verification"
+                  }
+                  onPress={handleUpdateVerification}
+                  loading={saving}
+                  style={{
+                    paddingHorizontal: 20,
+                  }}
+                />
+
+              </View>
+
             </ScrollView>
+
           </View>
+
         </View>
       </Modal>
 
@@ -283,12 +660,29 @@ export default function HospitalsTab() {
               <CustomInput label="State" value={hState} onChangeText={setHState} />
               <CustomInput label="PIN Code" value={hPin} onChangeText={setHPin} />
               <CustomInput label="Registration Number" value={hRegNo} onChangeText={setHRegNo} maxLength={20} />
-              
+
               <Text style={styles.label}>Hospital Type</Text>
               <View style={styles.pickerContainer}>
                 <Picker selectedValue={hType} onValueChange={setHType} style={styles.picker as any}>
-                  <Picker.Item label="GENERAL" value="GENERAL" />
-                  <Picker.Item label="SPECIALTY" value="SPECIALTY" />
+                  <Picker.Item
+                    label="Government"
+                    value="GOVERNMENT"
+                  />
+
+                  <Picker.Item
+                    label="Private"
+                    value="PRIVATE"
+                  />
+
+                  <Picker.Item
+                    label="Trust"
+                    value="TRUST"
+                  />
+
+                  <Picker.Item
+                    label="Clinic"
+                    value="CLINIC"
+                  />
                 </Picker>
 
               </View>
@@ -344,4 +738,51 @@ const styles = StyleSheet.create({
   modalCancelBtn: { padding: 12 },
   modalCancelText: { color: "#64748B", fontWeight: "bold" },
   label: { fontSize: 14, color: "#64748B", fontWeight: "600", marginBottom: 6, marginTop: 10 },
+  detailTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: AdminTheme.textPrimary,
+    marginBottom: 10,
+  },
+
+  checkboxHint: {
+    fontSize: 12,
+    color: AdminTheme.textSecondary,
+    marginTop: 3,
+  },
+
+  remarksInput: {
+    borderWidth: 1,
+    borderColor: AdminTheme.border,
+    backgroundColor: AdminTheme.surfaceAlt,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 100,
+    fontSize: 14,
+    color: AdminTheme.textPrimary,
+    marginBottom: 15,
+  },
+
+  verificationSummaryCard: {
+    backgroundColor: AdminTheme.primaryBg,
+    borderWidth: 1,
+    borderColor: AdminTheme.border,
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 5,
+  },
+
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: AdminTheme.textPrimary,
+    marginBottom: 8,
+  },
+
+  summaryItem: {
+    fontSize: 13,
+    color: AdminTheme.textSecondary,
+    marginBottom: 5,
+  },
+
 });

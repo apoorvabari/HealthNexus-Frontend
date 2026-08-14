@@ -1,24 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { AdminTheme } from "../../constants/adminTheme";
 import { Ionicons } from "@expo/vector-icons";
-import { getPlatformAnalytics, AnalyticsResponse } from "../../services/AdminService";
+import { getDashboardStats, AdminDashboardStatsResponse } from "../../services/AdminService";
 
 export default function OverviewTab() {
-  const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
+  const [stats, setStats] = useState<AdminDashboardStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAnalytics();
+    fetchStats();
   }, []);
 
-  const fetchAnalytics = async () => {
+  const fetchStats = async () => {
     try {
       setLoading(true);
-      const data = await getPlatformAnalytics();
-      setAnalytics(data);
+      const data = await getDashboardStats();
+      setStats(data);
     } catch (err) {
-      console.log("Error fetching analytics", err);
+      console.log("Error fetching stats", err);
     } finally {
       setLoading(false);
     }
@@ -32,71 +32,108 @@ export default function OverviewTab() {
     );
   }
 
-  if (!analytics) {
+  if (!stats) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Failed to load analytics</Text>
+        <Text style={styles.errorText}>Failed to load platform stats</Text>
       </View>
     );
   }
 
-  const statCards = [
-    { title: "Total Doctors", value: analytics.totalDoctors, icon: "medkit", color: AdminTheme.info, trend: "+4% this week" },
-    { title: "Total Patients", value: analytics.totalPatients, icon: "people", color: AdminTheme.success, trend: "+12% this month" },
-    { title: "Total Hospitals", value: analytics.totalHospitals, icon: "business", color: AdminTheme.warning, trend: "No change" },
-    { title: "Total Appointments", value: analytics.totalAppointments, icon: "calendar", color: AdminTheme.primary, trend: "+8% this week" },
-    { title: "Appointments Today", value: analytics.appointmentsToday, icon: "today", color: AdminTheme.danger, trend: "High volume today", special: true },
+  const sections = [
+    {
+      title: "Doctors",
+      icon: "medkit",
+      color: AdminTheme.primary,
+      items: [
+        { label: "Total", value: stats.totalDoctors },
+        { label: "Pending", value: stats.pendingDoctors, color: AdminTheme.warning },
+        { label: "Approved", value: stats.approvedDoctors, color: AdminTheme.success },
+        { label: "Rejected", value: stats.rejectedDoctors, color: AdminTheme.danger },
+      ]
+    },
+    {
+      title: "Hospitals / Clinics",
+      icon: "business",
+      color: AdminTheme.info,
+      items: [
+        { label: "Total", value: stats.totalHospitals },
+        { label: "Pending", value: stats.pendingHospitals, color: AdminTheme.warning },
+        { label: "Approved", value: stats.approvedHospitals, color: AdminTheme.success },
+        { label: "Rejected", value: stats.rejectedHospitals, color: AdminTheme.danger },
+      ]
+    },
+    {
+      title: "Users",
+      icon: "people",
+      color: AdminTheme.success,
+      items: [
+        { label: "Total", value: stats.totalUsers },
+        { label: "Active", value: stats.activeUsers, color: AdminTheme.success },
+        { label: "Deleted", value: stats.deletedUsers, color: AdminTheme.danger },
+      ]
+    }
   ];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Platform Overview</Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.pageTitle}>Platform Overview</Text>
       
-      <View style={styles.grid}>
-        {statCards.map((card, index) => (
-          <View key={index} style={[styles.card, { borderLeftColor: card.color, borderLeftWidth: 4 }, card.special && styles.cardSpecial]}>
-            <View style={[styles.iconContainer, { backgroundColor: card.color + "1A" }]}>
-              <Ionicons name={card.icon as any} size={24} color={card.color} />
+      {sections.map((section, idx) => (
+        <View key={idx} style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.iconContainer, { backgroundColor: section.color + "1A" }]}>
+              <Ionicons name={section.icon as any} size={24} color={section.color} />
             </View>
-            <View style={styles.cardContent}>
-              <Text style={[styles.cardValue, card.special && { fontSize: 32, color: card.color }]}>{card.value}</Text>
-              <Text style={styles.cardTitle}>{card.title}</Text>
-              <Text style={styles.trendText}>{card.trend}</Text>
-            </View>
+            <Text style={styles.sectionTitleText}>{section.title}</Text>
           </View>
-        ))}
-      </View>
-    </View>
+          
+          <View style={styles.grid}>
+            {section.items.map((item, itemIdx) => (
+              <View key={itemIdx} style={[styles.card, item.color && { borderLeftColor: item.color, borderLeftWidth: 4 }]}>
+                <Text style={[styles.cardValue, item.color && { color: item.color }]}>{item.value}</Text>
+                <Text style={styles.cardTitle}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { paddingBottom: 20 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", minHeight: 200 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 15 },
+  pageTitle: { fontSize: 20, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 20 },
   errorText: { color: AdminTheme.danger, fontWeight: "600" },
-  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 15 },
-  card: {
+  sectionContainer: {
     backgroundColor: AdminTheme.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    width: "48%",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-    marginBottom: 10,
+    marginBottom: 20,
   },
-  cardSpecial: {
-    width: "100%",
-    backgroundColor: AdminTheme.dangerBg,
+  iconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: "center", alignItems: "center", marginRight: 12 },
+  sectionTitleText: { fontSize: 18, fontWeight: "700", color: AdminTheme.textPrimary },
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 15 },
+  card: {
+    backgroundColor: AdminTheme.background,
+    borderRadius: 10,
+    padding: 15,
+    width: "47%",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  iconContainer: { width: 50, height: 50, borderRadius: 25, justifyContent: "center", alignItems: "center", marginRight: 15 },
-  cardContent: { flex: 1 },
-  cardValue: { fontSize: 24, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 4 },
+  cardValue: { fontSize: 26, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 5 },
   cardTitle: { fontSize: 13, color: AdminTheme.textSecondary, fontWeight: "600" },
-  trendText: { fontSize: 11, color: AdminTheme.textMuted, marginTop: 4 },
 });

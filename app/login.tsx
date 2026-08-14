@@ -249,6 +249,7 @@ export default function UnifiedLoginScreen() {
           lastName: response.lastName,
           email: response.email,
           role: responseRole,
+          lastLogin: response.lastLogin,
         });
       }
 

@@ -2,9 +2,34 @@ import api from "./api";
 
 export interface HospitalResponse {
   id: string;
+
   hospitalName: string;
   hospitalCode?: string;
+
+  email?: string;
+  phoneNumber?: string;
+
   address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+
+  hospitalType?: "GOVERNMENT" | "PRIVATE" | "TRUST" | "CLINIC";
+  registrationNumber?: string;
+
+  // Operational status
+  status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+
+  // Admin verification
+  verificationStatus?: "PENDING" | "APPROVED" | "REJECTED";
+
+  detailsVerified?: boolean;
+  locationVerified?: boolean;
+
+  verificationRemarks?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+
   [key: string]: any;
 }
 

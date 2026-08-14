@@ -2,18 +2,32 @@ import api from "./api";
 
 export interface DoctorResponse {
   id: string;
+
   accountId?: string;
   accountName?: string;
+
   specialization?: string;
   licenseNumber?: string;
   qualification?: string;
   experience?: number;
   consultationFee?: number;
-  status?: string;
+
+  status?: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+
+  verificationStatus?: "PENDING" | "APPROVED" | "REJECTED";
+  licenseVerified?: boolean;
+  degreeVerified?: boolean;
+  specializationVerified?: boolean;
+  verificationRemarks?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+
   hospitalId?: string;
   hospitalName?: string;
+
   departmentId?: string;
   departmentName?: string;
+  
   [key: string]: any;
 }
 

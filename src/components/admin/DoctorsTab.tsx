@@ -1,9 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import Toast from "react-native-toast-message";
 import { AdminTheme, getStatusStyle } from "../../constants/adminTheme";
-import { updateDoctorStatus } from "../../services/AdminService";
+import {
+  DoctorVerificationStatus,
+  updateDoctorVerification,
+} from "../../services/AdminService";
 import { DoctorResponse, getAllDoctors } from "../../services/DoctorService";
 import PrimaryButton from "../buttons/PrimaryButton";
 import PaginationControls from "../ui/PaginationControls";
@@ -25,7 +28,10 @@ export default function DoctorsTab() {
   const [verifyDegree, setVerifyDegree] = useState(false);
   const [verifySpecialization, setVerifySpecialization] = useState(false);
 
-  const [newStatus, setNewStatus] = useState("ACTIVE");
+  const [verificationStatus, setVerificationStatus] =
+    useState<DoctorVerificationStatus>("PENDING");
+
+  const [verificationRemarks, setVerificationRemarks] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -56,11 +62,21 @@ export default function DoctorsTab() {
 
   const openVerifyModal = (doctor: DoctorResponse) => {
     setSelectedDoctor(doctor);
+
     setStep(1);
-    setVerifyLicense(false);
-    setVerifyDegree(false);
-    setVerifySpecialization(false);
-    setNewStatus(doctor.status || "APPROVED");
+
+    setVerifyLicense(doctor.licenseVerified ?? false);
+    setVerifyDegree(doctor.degreeVerified ?? false);
+    setVerifySpecialization(doctor.specializationVerified ?? false);
+
+    setVerificationStatus(
+      doctor.verificationStatus || "PENDING"
+    );
+
+    setVerificationRemarks(
+      doctor.verificationRemarks || ""
+    );
+
     setShowModal(true);
   };
 
@@ -80,16 +96,80 @@ export default function DoctorsTab() {
     setStep(step + 1);
   };
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateVerification = async () => {
     if (!selectedDoctor) return;
+
+    if (verificationStatus === "APPROVED") {
+      if (
+        !verifyLicense ||
+        !verifyDegree ||
+        !verifySpecialization
+      ) {
+        Toast.show({
+          type: "error",
+          text1: "Cannot Approve Doctor",
+          text2:
+            "License, degree and specialization must all be verified.",
+        });
+
+        return;
+      }
+    }
+
+    if (verificationStatus === "REJECTED") {
+      if (!verificationRemarks.trim()) {
+        Toast.show({
+          type: "error",
+          text1: "Rejection Reason Required",
+          text2:
+            "Please provide a reason for rejecting the doctor.",
+        });
+
+        return;
+      }
+    }
+
     try {
       setSaving(true);
-      await updateDoctorStatus(selectedDoctor.id, { status: newStatus });
-      Toast.show({ type: "success", text1: "Status Updated", text2: `Doctor is now ${newStatus}` });
+
+      await updateDoctorVerification(
+        selectedDoctor.id,
+        {
+          verificationStatus,
+          licenseVerified: verifyLicense,
+          degreeVerified: verifyDegree,
+          specializationVerified: verifySpecialization,
+          verificationRemarks:
+            verificationRemarks.trim() || undefined,
+        }
+      );
+
+      Toast.show({
+        type: "success",
+        text1: "Verification Updated",
+        text2:
+          verificationStatus === "APPROVED"
+            ? "Doctor approved successfully."
+            : verificationStatus === "REJECTED"
+              ? "Doctor rejected successfully."
+              : "Verification progress saved.",
+      });
+
       setShowModal(false);
-      fetchDoctors(searchQuery, page);
+
+      await fetchDoctors(searchQuery, page);
+
     } catch (err: any) {
-      Toast.show({ type: "error", text1: "Update Failed", text2: err.message });
+
+      Toast.show({
+        type: "error",
+        text1: "Verification Failed",
+        text2:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Unable to update doctor verification.",
+      });
+
     } finally {
       setSaving(false);
     }
@@ -115,7 +195,9 @@ export default function DoctorsTab() {
         </View>
       ) : (
         doctors.map(d => {
-          const statusStyle = getStatusStyle(d.status || "PENDING");
+          const statusStyle = getStatusStyle(
+            d.verificationStatus || "PENDING"
+          );
           return (
             <View key={d.id} style={[styles.listItem, { borderLeftColor: AdminTheme.primary, borderLeftWidth: 4 }]}>
               <View style={styles.listItemContent}>
@@ -123,14 +205,22 @@ export default function DoctorsTab() {
                 <Text style={styles.listItemSubtitle}>{d.specialization || "No Specialization"}</Text>
                 <View style={styles.badgeRow}>
                   <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{d.status || "PENDING"}</Text>
+                    <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>
+                      {d.verificationStatus || "PENDING"}
+                    </Text>
                   </View>
                   <Text style={styles.listItemBadge2}>{d.hospitalName || "No Hospital"}</Text>
                 </View>
               </View>
               <View style={styles.listItemActions}>
                 <TouchableOpacity onPress={() => openVerifyModal(d)} style={styles.verifyBtn}>
-                  <Text style={styles.verifyBtnText}>Verify</Text>
+                  <Text style={styles.verifyBtnText}>
+  {d.verificationStatus === "APPROVED"
+    ? "View"
+    : d.verificationStatus === "REJECTED"
+      ? "Review"
+      : "Verify"}
+</Text>
                   <Ionicons name="shield-checkmark-outline" size={16} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -208,23 +298,122 @@ export default function DoctorsTab() {
 
               {step === 4 && (
                 <View>
-                  <Text style={styles.sectionLabel}>Select Status</Text>
+                  <Text style={styles.sectionLabel}>
+                    Final Verification Decision
+                  </Text>
+
                   <View style={styles.statusButtonsRow}>
+
                     <TouchableOpacity
-                      style={[styles.bigActionBtn, newStatus === "ACTIVE" ? { backgroundColor: AdminTheme.success } : { backgroundColor: AdminTheme.surfaceAlt, borderWidth: 1, borderColor: AdminTheme.border }]}
-                      onPress={() => setNewStatus("ACTIVE")}
+                      style={[
+                        styles.bigActionBtn,
+                        verificationStatus === "APPROVED"
+                          ? { backgroundColor: AdminTheme.success }
+                          : {
+                            backgroundColor: AdminTheme.surfaceAlt,
+                            borderWidth: 1,
+                            borderColor: AdminTheme.border,
+                          },
+                      ]}
+                      onPress={() => setVerificationStatus("APPROVED")}
                     >
-                      <Ionicons name="checkmark-circle-outline" size={24} color={newStatus === "ACTIVE" ? "#FFF" : AdminTheme.success} />
-                      <Text style={[styles.bigActionBtnText, { color: newStatus === "ACTIVE" ? "#FFF" : AdminTheme.textPrimary }]}>Approve</Text>
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={24}
+                        color={
+                          verificationStatus === "APPROVED"
+                            ? "#FFF"
+                            : AdminTheme.success
+                        }
+                      />
+
+                      <Text
+                        style={[
+                          styles.bigActionBtnText,
+                          {
+                            color:
+                              verificationStatus === "APPROVED"
+                                ? "#FFF"
+                                : AdminTheme.textPrimary,
+                          },
+                        ]}
+                      >
+                        Approve
+                      </Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
-                      style={[styles.bigActionBtn, newStatus === "SUSPENDED" ? { backgroundColor: AdminTheme.danger } : { backgroundColor: AdminTheme.surfaceAlt, borderWidth: 1, borderColor: AdminTheme.border }]}
-                      onPress={() => setNewStatus("SUSPENDED")}
+                      style={[
+                        styles.bigActionBtn,
+                        verificationStatus === "REJECTED"
+                          ? { backgroundColor: AdminTheme.danger }
+                          : {
+                            backgroundColor: AdminTheme.surfaceAlt,
+                            borderWidth: 1,
+                            borderColor: AdminTheme.border,
+                          },
+                      ]}
+                      onPress={() => setVerificationStatus("REJECTED")}
                     >
-                      <Ionicons name="close-circle-outline" size={24} color={newStatus === "SUSPENDED" ? "#FFF" : AdminTheme.danger} />
-                      <Text style={[styles.bigActionBtnText, { color: newStatus === "SUSPENDED" ? "#FFF" : AdminTheme.textPrimary }]}>Reject</Text>
+                      <Ionicons
+                        name="close-circle-outline"
+                        size={24}
+                        color={
+                          verificationStatus === "REJECTED"
+                            ? "#FFF"
+                            : AdminTheme.danger
+                        }
+                      />
+
+                      <Text
+                        style={[
+                          styles.bigActionBtnText,
+                          {
+                            color:
+                              verificationStatus === "REJECTED"
+                                ? "#FFF"
+                                : AdminTheme.textPrimary,
+                          },
+                        ]}
+                      >
+                        Reject
+                      </Text>
                     </TouchableOpacity>
+
                   </View>
+
+                  <Text style={styles.sectionLabel}>
+                    Verification Remarks
+                  </Text>
+
+                  <TextInput
+                    value={verificationRemarks}
+                    onChangeText={setVerificationRemarks}
+                    placeholder={
+                      verificationStatus === "REJECTED"
+                        ? "Enter reason for rejection..."
+                        : "Optional verification remarks..."
+                    }
+                    multiline
+                    numberOfLines={4}
+                    style={styles.remarksInput}
+                    textAlignVertical="top"
+                  />
+
+                  <Text style={styles.verificationSummary}>
+                    License: {verifyLicense ? "Verified ✓" : "Not Verified"}
+                  </Text>
+
+                  <Text style={styles.verificationSummary}>
+                    Degree: {verifyDegree ? "Verified ✓" : "Not Verified"}
+                  </Text>
+
+                  <Text style={styles.verificationSummary}>
+                    Specialization:{" "}
+                    {verifySpecialization
+                      ? "Verified ✓"
+                      : "Not Verified"}
+                  </Text>
                 </View>
               )}
 
@@ -242,7 +431,18 @@ export default function DoctorsTab() {
                 {step < 4 ? (
                   <PrimaryButton title="Next" onPress={handleNextStep} style={{ paddingHorizontal: 20 }} />
                 ) : (
-                  <PrimaryButton title="Update Status" onPress={handleUpdateStatus} loading={saving} style={{ paddingHorizontal: 20 }} />
+                  <PrimaryButton
+                    title={
+                      verificationStatus === "APPROVED"
+                        ? "Approve Doctor"
+                        : verificationStatus === "REJECTED"
+                          ? "Reject Doctor"
+                          : "Save Verification"
+                    }
+                    onPress={handleUpdateVerification}
+                    loading={saving}
+                    style={{ paddingHorizontal: 20 }}
+                  />
                 )}
               </View>
             </ScrollView>
@@ -295,5 +495,23 @@ const styles = StyleSheet.create({
   modalActionRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 12, marginTop: 20 },
   modalCancelBtn: { padding: 12 },
   modalCancelText: { color: "#64748B", fontWeight: "bold" },
+  remarksInput: {
+    borderWidth: 1,
+    borderColor: AdminTheme.border,
+    backgroundColor: AdminTheme.surfaceAlt,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 100,
+    fontSize: 14,
+    color: AdminTheme.textPrimary,
+    marginBottom: 15,
+  },
+
+  verificationSummary: {
+    fontSize: 14,
+    color: AdminTheme.textSecondary,
+    marginBottom: 6,
+  },
+
 });
 
