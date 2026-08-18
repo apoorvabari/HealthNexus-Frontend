@@ -551,7 +551,8 @@ export default function PatientHomeScreen() {
               </View>
 
               <CustomInput
-                label="Date *"
+                label="Appointment Date *"
+                placeholder="YYYY-MM-DD"
                 value={bookingDate}
                 onChangeText={setBookingDate}
                 darkTheme={true}
@@ -559,7 +560,8 @@ export default function PatientHomeScreen() {
               />
 
               <CustomInput
-                label="Time *"
+                label="Appointment Time *"
+                placeholder="HH:MM"
                 value={bookingTime}
                 onChangeText={setBookingTime}
                 darkTheme={true}

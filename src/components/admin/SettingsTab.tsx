@@ -1,235 +1,285 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, Modal } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import Toast from "react-native-toast-message";
-import { getAllSystemSettings, updateSystemSetting, getAuditLogs, SystemSettingsResponse, AuditLogResponse } from "../../services/AdminService";
-import PrimaryButton from "../buttons/PrimaryButton";
-import CustomInput from "../inputs/CustomInput";
-import SearchBar from "../ui/SearchBar";
-import PaginationControls from "../ui/PaginationControls";
 import { AdminTheme } from "../../constants/adminTheme";
+import { AuditLogResponse, getAllSystemSettings, getAuditLogs, SystemSettingsResponse, updateSystemSetting } from "../../services/AdminService";
+import PaginationControls from "../ui/PaginationControls";
+import SearchBar from "../ui/SearchBar";
+import {
+  GeneralSettingsForm,
+  UserAccountSettingsForm,
+  RolePermissionSettingsForm,
+  SecuritySettingsForm,
+  HospitalConfigForm,
+  AppointmentConfigForm,
+  QueueConfigForm,
+  NotificationSettingsForm,
+  EmailConfigForm,
+  SmsConfigForm,
+  PrivacyDataForm,
+  FileDocumentForm,
+  BackupRecoveryForm,
+  MaintenanceForm,
+  IntegrationsForm,
+  SystemInformation,
+  AuditLogSettingsForm
+} from "./settings/SettingsForms";
+
+const SETTING_CATEGORIES = [
+  { id: "GENERAL_SETTINGS", label: "General Settings" },
+  { id: "USER_ACCOUNT_SETTINGS", label: "User & Account" },
+  { id: "ROLE_SETTINGS", label: "Roles & Permissions" },
+  { id: "SECURITY_SETTINGS", label: "Security" },
+  { id: "HOSPITAL_CONFIG", label: "Hospital Config" },
+  { id: "APPOINTMENT_CONFIG", label: "Appointment Config" },
+  { id: "QUEUE_CONFIG", label: "Queue Config" },
+  { id: "NOTIFICATION_SETTINGS", label: "Notifications" },
+  { id: "EMAIL_CONFIG", label: "Email Config" },
+  { id: "SMS_CONFIG", label: "SMS Config" },
+  { id: "AUDIT_LOG_CONFIG", label: "Audit Log Settings" },
+  { id: "PRIVACY_DATA_CONFIG", label: "Privacy & Data" },
+  { id: "FILE_DOC_CONFIG", label: "Files & Documents" },
+  { id: "BACKUP_RECOVERY_CONFIG", label: "Backup & Recovery" },
+  { id: "MAINTENANCE_CONFIG", label: "Maintenance" },
+  { id: "INTEGRATIONS", label: "Integrations" },
+  { id: "SYSTEM_INFO", label: "System Information" },
+  { id: "AUDIT_LOGS_VIEW", label: "View Audit Logs" },
+];
 
 export default function SettingsTab() {
-  const [settings, setSettings] = useState<SystemSettingsResponse[]>([]);
-  const [logs, setLogs] = useState<AuditLogResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  
+  const [activeTab, setActiveTab] = useState("GENERAL_SETTINGS");
+  
+  const [settingsDict, setSettingsDict] = useState<Record<string, any>>({});
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [saving, setSaving] = useState(false);
 
+  // Audit Logs State
+  const [logs, setLogs] = useState<AuditLogResponse[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
 
-  const [activeSubTab, setActiveSubTab] = useState<"CONFIG" | "LOGS">("CONFIG");
-
-  const [showModal, setShowModal] = useState(false);
-  const [settingKey, setSettingKey] = useState("");
-  const [settingValue, setSettingValue] = useState("");
-  const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
-    fetchData(searchQuery, page);
-  }, [page, activeSubTab]);
+    if (activeTab === "AUDIT_LOGS_VIEW") {
+      fetchLogs(searchQuery, page);
+    }
+  }, [activeTab, page]);
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (page === 0) fetchData(searchQuery, 0);
-      else setPage(0);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
+    if (activeTab === "AUDIT_LOGS_VIEW") {
+      const delayDebounceFn = setTimeout(() => {
+        if (page === 0) fetchLogs(searchQuery, 0);
+        else setPage(0);
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
   }, [searchQuery]);
 
-  const fetchData = async (search = "", pageNum = 0) => {
+  const fetchSettings = async () => {
     try {
-      setLoading(true);
-      const [settData, logData] = await Promise.all([
-        getAllSystemSettings(),
-        getAuditLogs(search, pageNum, 10)
-      ]);
-      setSettings(settData);
-      setLogs(logData.content || logData as any);
-      setTotalPages(logData.totalPages || 0);
-      setTotalElements(logData.totalElements || 0);
+      setLoadingSettings(true);
+      const data = await getAllSystemSettings();
+      const dict: Record<string, any> = {};
+      data.forEach(s => {
+        try {
+          dict[s.settingKey] = JSON.parse(s.settingValue);
+        } catch {
+          // Fallback if it's not JSON
+          dict[s.settingKey] = s.settingValue;
+        }
+      });
+      setSettingsDict(dict);
     } catch (err) {
-      console.log("Error fetching settings/logs", err);
+      console.log("Error fetching settings", err);
+      Toast.show({ type: "error", text1: "Error", text2: "Failed to load settings." });
     } finally {
-      setLoading(false);
+      setLoadingSettings(false);
     }
   };
 
-  const openEdit = (s: SystemSettingsResponse) => {
-    setSettingKey(s.settingKey);
-    setSettingValue(s.settingValue);
-    setDescription(s.description || "");
-    setShowModal(true);
+  const fetchLogs = async (search = "", pageNum = 0) => {
+    try {
+      setLoadingLogs(true);
+      const data = await getAuditLogs(search, pageNum, 10);
+      setLogs(data.content || []);
+      setTotalPages(data.totalPages || 0);
+      setTotalElements(data.totalElements || 0);
+    } catch (err) {
+      console.log("Error fetching logs", err);
+    } finally {
+      setLoadingLogs(false);
+    }
   };
 
-  const handleSave = async () => {
-    if (!settingKey || !settingValue) {
-      Toast.show({ type: "error", text1: "Validation", text2: "Key and Value are required." });
-      return;
-    }
+  const handleSaveSetting = async (key: string, data: any) => {
     try {
       setSaving(true);
-      await updateSystemSetting({ settingKey, settingValue, description });
-      Toast.show({ type: "success", text1: "Success", text2: "Setting updated." });
-      setShowModal(false);
-      fetchData(searchQuery, page);
+      await updateSystemSetting({
+        settingKey: key,
+        settingValue: JSON.stringify(data),
+        description: "Managed by Admin Portal Settings"
+      });
+      Toast.show({ type: "success", text1: "Settings Saved", text2: "Configuration updated successfully." });
+      // Update local dictionary so it reflects immediately without refetching everything
+      setSettingsDict(prev => ({ ...prev, [key]: data }));
     } catch (err: any) {
-      Toast.show({ type: "error", text1: "Update Failed", text2: err.message });
+      Toast.show({ type: "error", text1: "Save Failed", text2: err.message || "Failed to save settings." });
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#8B5CF6" /></View>;
-  }
+  const renderActiveForm = () => {
+    if (loadingSettings) {
+      return (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={AdminTheme.primary} />
+          <Text style={{marginTop: 10, color: AdminTheme.textSecondary}}>Loading configuration...</Text>
+        </View>
+      );
+    }
+
+    switch (activeTab) {
+      case "GENERAL_SETTINGS": return <GeneralSettingsForm data={settingsDict["GENERAL_SETTINGS"]} onSave={handleSaveSetting} saving={saving} />;
+      case "USER_ACCOUNT_SETTINGS": return <UserAccountSettingsForm data={settingsDict["USER_ACCOUNT_SETTINGS"]} onSave={handleSaveSetting} saving={saving} />;
+      case "ROLE_SETTINGS": return <RolePermissionSettingsForm data={settingsDict["ROLE_SETTINGS"]} onSave={handleSaveSetting} saving={saving} />;
+      case "SECURITY_SETTINGS": return <SecuritySettingsForm data={settingsDict["SECURITY_SETTINGS"]} onSave={handleSaveSetting} saving={saving} />;
+      case "HOSPITAL_CONFIG": return <HospitalConfigForm data={settingsDict["HOSPITAL_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "APPOINTMENT_CONFIG": return <AppointmentConfigForm data={settingsDict["APPOINTMENT_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "QUEUE_CONFIG": return <QueueConfigForm data={settingsDict["QUEUE_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "NOTIFICATION_SETTINGS": return <NotificationSettingsForm data={settingsDict["NOTIFICATION_SETTINGS"]} onSave={handleSaveSetting} saving={saving} />;
+      case "EMAIL_CONFIG": return <EmailConfigForm data={settingsDict["EMAIL_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "SMS_CONFIG": return <SmsConfigForm data={settingsDict["SMS_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "AUDIT_LOG_CONFIG": return <AuditLogSettingsForm data={settingsDict["AUDIT_LOG_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "PRIVACY_DATA_CONFIG": return <PrivacyDataForm data={settingsDict["PRIVACY_DATA_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "FILE_DOC_CONFIG": return <FileDocumentForm data={settingsDict["FILE_DOC_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "BACKUP_RECOVERY_CONFIG": return <BackupRecoveryForm data={settingsDict["BACKUP_RECOVERY_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "MAINTENANCE_CONFIG": return <MaintenanceForm data={settingsDict["MAINTENANCE_CONFIG"]} onSave={handleSaveSetting} saving={saving} />;
+      case "INTEGRATIONS": return <IntegrationsForm data={settingsDict["INTEGRATIONS"]} onSave={handleSaveSetting} saving={saving} />;
+      case "SYSTEM_INFO": return <SystemInformation />;
+      case "AUDIT_LOGS_VIEW": return renderAuditLogs();
+      default: return null;
+    }
+  };
+
+  const renderAuditLogs = () => (
+    <View style={styles.card}>
+      <Text style={styles.title}>System Audit Logs</Text>
+      <Text style={styles.description}>Track all administrative actions and security events.</Text>
+      
+      <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search audit logs..." />
+
+      {loadingLogs ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={AdminTheme.primary} />
+        </View>
+      ) : logs.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>No audit logs found.</Text>
+        </View>
+      ) : (
+        <View>
+          {logs.map((l: any) => {
+            let actionColor = AdminTheme.textMuted;
+            if (l.action.includes("CREATE") || l.action.includes("ADD")) actionColor = AdminTheme.success;
+            if (l.action.includes("UPDATE") || l.action.includes("EDIT")) actionColor = AdminTheme.info;
+            if (l.action.includes("DELETE") || l.action.includes("REMOVE")) actionColor = AdminTheme.danger;
+            if (l.action.includes("LOGIN") || l.action.includes("AUTH")) actionColor = AdminTheme.primary;
+
+            return (
+              <View key={l.id} style={[styles.logItem, { borderLeftColor: actionColor }]}>
+                <View style={styles.logHeader}>
+                  <Text style={[styles.logAction, { color: actionColor }]}>{l.action}</Text>
+                  <Text style={styles.logTime}>{new Date(l.timestamp).toLocaleString()}</Text>
+                </View>
+                <Text style={[styles.logDetails, {marginBottom: 4}]}>Entity: {l.entityName} ({l.entityId})</Text>
+                {l.performedBy && <Text style={[styles.logDetails, {marginBottom: 4}]}>Performed By: {l.performedBy}</Text>}
+                <Text style={styles.logDetails}>{l.details}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {!loadingLogs && logs.length > 0 && (
+        <PaginationControls currentPage={page} totalPages={totalPages} totalElements={totalElements} onPageChange={setPage} />
+      )}
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>System Monitoring & Settings</Text>
+        <Text style={styles.sectionTitle}>Platform Settings</Text>
       </View>
 
-      <View style={styles.filterTabs}>
-        <TouchableOpacity style={[styles.filterTab, activeSubTab === "CONFIG" && styles.filterTabActive]} onPress={() => setActiveSubTab("CONFIG")}>
-          <Text style={[styles.filterText, activeSubTab === "CONFIG" && styles.filterTextActive]}>System Settings</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, activeSubTab === "LOGS" && styles.filterTabActive]} onPress={() => setActiveSubTab("LOGS")}>
-          <Text style={[styles.filterText, activeSubTab === "LOGS" && styles.filterTextActive]}>Audit Logs</Text>
-        </TouchableOpacity>
-      </View>
-
-      {activeSubTab === "CONFIG" && (
-        <View>
-          {settings.length === 0 ? (
-             <View style={styles.emptyState}>
-               <Text style={styles.emptyStateText}>No system settings configured.</Text>
-             </View>
-          ) : (
-            settings.map(s => (
-              <View key={s.id} style={styles.listItem}>
-                <View style={styles.listItemContent}>
-                  <Text style={styles.listItemTitle}>{s.settingKey}</Text>
-                  <Text style={styles.listItemSubtitle}>{s.settingValue}</Text>
-                  <Text style={styles.detailText}>{s.description}</Text>
-                </View>
-                <View style={styles.listItemActions}>
-                  <TouchableOpacity onPress={() => openEdit(s)} style={styles.iconBtn}>
-                    <Ionicons name="create-outline" size={20} color="#3B82F6" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
-          <PrimaryButton title="Add New Setting Config" onPress={() => { setSettingKey(""); setSettingValue(""); setDescription(""); setShowModal(true); }} style={{ marginTop: 10 }} />
-        </View>
-      )}
-
-      {activeSubTab === "LOGS" && (
-        <View>
-          <SearchBar 
-            value={searchQuery} 
-            onChangeText={setSearchQuery} 
-            placeholder="Search audit logs by action or details..."
-          />
-
-          {loading && logs.length === 0 ? (
-             <View style={styles.center}><ActivityIndicator size="large" color={AdminTheme.primary} /></View>
-          ) : (
-            (logs.length > 0 ? logs : [
-              { id: "1", action: "CREATE_HOSPITAL", timestamp: new Date().getTime() - 1000 * 60 * 5, details: "Added City General Hospital", entityName: "Hospital", entityId: "H-102" },
-              { id: "2", action: "UPDATE_STATUS", timestamp: new Date().getTime() - 1000 * 60 * 60, details: "Verified Dr. Smith license", entityName: "Doctor", entityId: "D-905" },
-              { id: "3", action: "ADMIN_LOGIN", timestamp: new Date().getTime() - 1000 * 60 * 120, details: "Admin successfully logged in", entityName: "User", entityId: "ADMIN-1" },
-              { id: "4", action: "DELETE_USER", timestamp: new Date().getTime() - 1000 * 60 * 60 * 24, details: "Removed inactive patient", entityName: "Patient", entityId: "P-440" },
-            ]).map((l: any) => {
-              let actionColor = AdminTheme.textMuted;
-              if (l.action.includes("CREATE")) actionColor = AdminTheme.success;
-              if (l.action.includes("UPDATE")) actionColor = AdminTheme.info;
-              if (l.action.includes("DELETE")) actionColor = AdminTheme.danger;
-              if (l.action.includes("LOGIN")) actionColor = AdminTheme.primary;
-
+      <View style={[styles.layoutWrapper, isMobile && { flexDirection: "column" }]}>
+        
+        {/* SIDEBAR NAVIGATION */}
+        <View style={[styles.sidebar, isMobile && { width: "100%", marginBottom: 20 }]}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+            {SETTING_CATEGORIES.map(cat => {
+              const isActive = activeTab === cat.id;
               return (
-                <View key={l.id} style={[styles.logItem, { borderLeftColor: actionColor }]}>
-                  <View style={styles.logHeader}>
-                    <Text style={[styles.logAction, { color: actionColor }]}>{l.action}</Text>
-                    <Text style={styles.logTime}>{new Date(l.timestamp).toLocaleString()}</Text>
-                  </View>
-                  <Text style={styles.logDetails}>{l.details}</Text>
-                  <Text style={styles.logEntity}>Target: {l.entityName} ({l.entityId})</Text>
-                </View>
+                <TouchableOpacity 
+                  key={cat.id} 
+                  style={[styles.sidebarItem, isActive && styles.sidebarItemActive]}
+                  onPress={() => setActiveTab(cat.id)}
+                >
+                  <Text style={[styles.sidebarText, isActive && styles.sidebarTextActive]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
               );
-            })
-          )}
-
-          {!loading && logs.length > 0 && (
-            <PaginationControls
-              currentPage={page}
-              totalPages={totalPages}
-              totalElements={totalElements}
-              onPageChange={setPage}
-            />
-          )}
+            })}
+          </ScrollView>
         </View>
-      )}
 
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>System Settings Config</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}><Ionicons name="close" size={24} color="#64748B" /></TouchableOpacity>
-            </View>
-            
-            <ScrollView style={{ maxHeight: 500, marginTop: 10 }}>
-              <CustomInput label="Setting Key (e.g. MAX_APPOINTMENTS)" value={settingKey} onChangeText={setSettingKey} />
-              <CustomInput label="Setting Value" value={settingValue} onChangeText={setSettingValue} />
-              <CustomInput label="Description" value={description} onChangeText={setDescription} />
-              
-              <View style={styles.modalActionRow}>
-                <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCancelBtn}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
-                <PrimaryButton title="Save Config" onPress={handleSave} loading={saving} style={{ paddingHorizontal: 20 }} />
-              </View>
-            </ScrollView>
-          </View>
+        {/* MAIN CONTENT AREA */}
+        <View style={[styles.mainContent, isMobile && { paddingLeft: 0 }]}>
+          {renderActiveForm()}
         </View>
-      </Modal>
 
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingBottom: 20 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", minHeight: 200 },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: AdminTheme.textPrimary },
-  filterTabs: { flexDirection: "row", marginBottom: 15, gap: 10 },
-  filterTab: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, backgroundColor: AdminTheme.border },
-  filterTabActive: { backgroundColor: AdminTheme.primary },
-  filterText: { fontSize: 13, color: AdminTheme.textSecondary, fontWeight: "600" },
-  filterTextActive: { color: "#fff" },
+  container: { paddingBottom: 20, flex: 1 },
+  sectionHeader: { marginBottom: 20 },
+  sectionTitle: { fontSize: 24, fontWeight: "bold", color: AdminTheme.textPrimary },
+  
+  layoutWrapper: { flexDirection: "row", flex: 1 },
+  
+  sidebar: { width: 250, borderRightWidth: 1, borderRightColor: AdminTheme.border, paddingRight: 10 },
+  sidebarItem: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, marginBottom: 4 },
+  sidebarItemActive: { backgroundColor: AdminTheme.primary + "1A" },
+  sidebarText: { fontSize: 14, color: AdminTheme.textSecondary, fontWeight: "600" },
+  sidebarTextActive: { color: AdminTheme.primary, fontWeight: "bold" },
+  
+  mainContent: { flex: 1, paddingLeft: 20 },
+  
+  center: { padding: 40, alignItems: "center" },
+  card: { backgroundColor: AdminTheme.surface, padding: 20, borderRadius: AdminTheme.borderRadius.lg, ...AdminTheme.shadows.medium, borderWidth: 1, borderColor: AdminTheme.border },
+  title: { fontSize: 18, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 8 },
+  description: { fontSize: 13, color: AdminTheme.textSecondary, marginBottom: 20 },
+  
   emptyState: { padding: 30, alignItems: "center", backgroundColor: AdminTheme.surfaceAlt, borderRadius: 12 },
   emptyStateText: { color: AdminTheme.textSecondary },
-  listItem: { flexDirection: "row", backgroundColor: AdminTheme.surface, padding: 16, borderRadius: 12, marginBottom: 10, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
-  listItemContent: { flex: 1 },
-  listItemTitle: { fontSize: 16, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 4 },
-  listItemSubtitle: { fontSize: 15, color: AdminTheme.info, marginBottom: 6, fontWeight: "600" },
-  detailText: { fontSize: 12, color: AdminTheme.textSecondary },
-  listItemActions: { flexDirection: "row", alignItems: "center", gap: 10 },
-  iconBtn: { padding: 8, backgroundColor: AdminTheme.surfaceAlt, borderRadius: 8 },
-  logItem: { backgroundColor: AdminTheme.surface, padding: 16, borderRadius: 12, marginBottom: 10, borderLeftWidth: 4, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
-  logHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  logAction: { fontWeight: "bold" },
+  
+  logItem: { backgroundColor: AdminTheme.surface, padding: 20, borderRadius: AdminTheme.borderRadius.lg, marginBottom: 16, borderLeftWidth: 4, borderWidth: 1, borderColor: AdminTheme.border, ...AdminTheme.shadows.soft },
+  logHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
+  logAction: { fontSize: 14, fontWeight: "bold" },
   logTime: { fontSize: 12, color: AdminTheme.textMuted },
-  logDetails: { color: AdminTheme.textSecondary, marginBottom: 4, fontSize: 14 },
-  logEntity: { color: AdminTheme.textMuted, fontSize: 12, fontStyle: "italic" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
-  modalContainer: { backgroundColor: AdminTheme.surface, width: "100%", maxWidth: 500, borderRadius: 20, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 },
-  modalHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  modalTitle: { fontSize: 20, fontWeight: "bold", color: AdminTheme.textPrimary },
-  modalActionRow: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 12, marginTop: 20 },
-  modalCancelBtn: { padding: 12 },
-  modalCancelText: { color: AdminTheme.textSecondary, fontWeight: "bold" },
+  logDetails: { fontSize: 13, color: AdminTheme.textSecondary },
 });

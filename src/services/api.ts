@@ -37,8 +37,6 @@ api.interceptors.response.use(
           setTimeout(() => {
             if (roleStr) {
               router.replace(`/login?role=${roleStr}`);
-            } else {
-              router.replace("/login");
             }
           }, 0);
       }

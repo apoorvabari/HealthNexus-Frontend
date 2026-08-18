@@ -18,6 +18,7 @@ import { AdminTheme, getStatusStyle } from "../../constants/adminTheme";
 export default function HospitalsTab() {
   const [hospitals, setHospitals] = useState<HospitalResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -65,12 +66,14 @@ export default function HospitalsTab() {
   const fetchHospitals = async (search = "", pageNum = 0) => {
     try {
       setLoading(true);
+      setError(false);
       const data = await getAllHospitals(search, pageNum, 10);
       setHospitals(data.content);
       setTotalPages(data.totalPages);
       setTotalElements(data.totalElements);
     } catch (err) {
       console.log("Error fetching hospitals", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -131,7 +134,7 @@ export default function HospitalsTab() {
         Toast.show({ type: "success", text1: "Hospital Created" });
       }
       setShowManageModal(false);
-      fetchHospitals();
+      fetchHospitals(searchQuery, page);
     } catch (err: any) {
       Toast.show({ type: "error", text1: "Error", text2: err.message });
     } finally {
@@ -150,9 +153,9 @@ export default function HospitalsTab() {
     ) {
       Toast.show({
         type: "error",
-        text1: "Cannot Approve Clinic",
+        text1: "Cannot Approve Hospital",
         text2:
-          "Clinic details and location must both be verified.",
+          "Hospital details and location must both be verified.",
       });
 
       return;
@@ -166,7 +169,7 @@ export default function HospitalsTab() {
         type: "error",
         text1: "Rejection Reason Required",
         text2:
-          "Please provide a reason for rejecting the clinic.",
+          "Please provide a reason for rejecting the hospital.",
       });
 
       return;
@@ -194,9 +197,9 @@ export default function HospitalsTab() {
         text1: "Verification Updated",
         text2:
           verificationStatus === "APPROVED"
-            ? "Clinic approved successfully."
+            ? "Hospital approved successfully."
             : verificationStatus === "REJECTED"
-              ? "Clinic rejected successfully."
+              ? "Hospital rejected successfully."
               : "Verification progress saved.",
       });
 
@@ -215,7 +218,7 @@ export default function HospitalsTab() {
         text2:
           err?.response?.data?.message ||
           err?.message ||
-          "Unable to update clinic verification.",
+          "Unable to update hospital verification.",
       });
 
     } finally {
@@ -227,18 +230,21 @@ export default function HospitalsTab() {
     try {
       await deleteHospital(id);
       Toast.show({ type: "success", text1: "Hospital Deleted" });
-      fetchHospitals();
+      fetchHospitals(searchQuery, page);
     } catch (err: any) {
-      Toast.show({ type: "error", text1: "Delete Failed", text2: err.message });
+      Toast.show({
+        type: "error", text1: "Delete Failed", text2: err?.response?.data?.message || err?.message || "Unable to delete hospital",
+      });
     }
   };
+
 
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Manage Clinics</Text>
+        <Text style={styles.sectionTitle}>Manage Hospitals</Text>
         <TouchableOpacity onPress={openAdd} style={styles.addBtn}>
-          <Text style={styles.addBtnText}>Add Clinic</Text>
+          <Text style={styles.addBtnText}>Add Hospital</Text>
           <Ionicons name="add" size={16} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -246,55 +252,72 @@ export default function HospitalsTab() {
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder="Search clinics by name, city, or state..."
+        placeholder="Search hospitals by name, city, or state..."
       />
 
       {loading && hospitals.length === 0 ? (
         <View style={styles.center}><ActivityIndicator size="large" color={AdminTheme.primary} /></View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={{ color: AdminTheme.danger, marginBottom: 12 }}>Failed to load hospitals</Text>
+          <TouchableOpacity onPress={() => fetchHospitals(searchQuery, page)} style={{ backgroundColor: AdminTheme.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
+            <Text style={{ color: "#FFF", fontWeight: "600" }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : hospitals.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>No clinics found.</Text>
+          <Text style={styles.emptyStateText}>No hospitals found.</Text>
         </View>
       ) : (
-        hospitals.map(h => {
-          const statusStyle = getStatusStyle(
-            h.verificationStatus || "PENDING"
-          );
-          return (
-            <View key={h.id} style={[styles.listItem, { borderLeftColor: AdminTheme.success, borderLeftWidth: 4 }]}>
-              <View style={styles.listItemContent}>
-                <Text style={styles.listItemTitle}>{h.hospitalName}</Text>
-                <Text style={styles.listItemSubtitle}>{h.city}, {h.state}</Text>
-                <View style={styles.badgeRow}>
-                  <Text style={styles.listItemBadge2}>{h.hospitalType}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{h.verificationStatus || "PENDING"}</Text>
+        <View>
+          <View style={{ gap: 16, paddingBottom: 16 }}>
+            {hospitals.map((h, index) => {
+              const statusStyle = getStatusStyle(h.verificationStatus || "PENDING");
+              return (
+                <View key={h.id} style={[styles.verticalCard, { borderTopColor: statusStyle.bg, borderTopWidth: 4 }]}>
+                  <View style={styles.horizontalCardContent}>
+                    <Text style={styles.tableRowTitle} numberOfLines={1}>{h.hospitalName}</Text>
+                    <Text style={styles.tableRowSubtitle} numberOfLines={1}>{h.city}, {h.state}</Text>
+                  </View>
+
+                  <View style={{ marginVertical: 12, gap: 8 }}>
+                    <View style={styles.pillBadgeNeutral}>
+                      <Text style={styles.pillBadgeNeutralText}>{h.hospitalType}</Text>
+                    </View>
+                    <View style={[styles.statusBadgeDot, { backgroundColor: statusStyle.bg }]}>
+                      <View style={[styles.statusDot, { backgroundColor: statusStyle.text }]} />
+                      <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{h.verificationStatus || "PENDING"}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.horizontalCardActions}>
+                    <TouchableOpacity onPress={() => openVerify(h)} style={styles.cardActionBtn}>
+                      <Ionicons name="shield-checkmark-outline" size={16} color={AdminTheme.success} />
+                      <Text style={{ color: AdminTheme.success, fontSize: 13, fontWeight: "600" }}>Verify</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => openEdit(h)} style={styles.cardActionBtn}>
+                      <Ionicons name="create-outline" size={16} color={AdminTheme.info} />
+                      <Text style={{ color: AdminTheme.info, fontSize: 13, fontWeight: "600" }}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDelete(h.id)} style={styles.cardActionBtn}>
+                      <Ionicons name="trash-outline" size={16} color={AdminTheme.danger} />
+                      <Text style={{ color: AdminTheme.danger, fontSize: 13, fontWeight: "600" }}>Delete</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-              <View style={styles.listItemActions}>
-                <TouchableOpacity onPress={() => openVerify(h)} style={styles.verifyBtn}>
-                  <Ionicons name="shield-checkmark-outline" size={18} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => openEdit(h)} style={styles.iconBtn}>
-                  <Ionicons name="create-outline" size={20} color={AdminTheme.info} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDelete(h.id)} style={styles.iconBtn}>
-                  <Ionicons name="trash-outline" size={20} color={AdminTheme.danger} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })
-      )}
+              );
+            })}
+          </View>
 
-      {!loading && hospitals.length > 0 && (
-        <PaginationControls
-          currentPage={page}
-          totalPages={totalPages}
-          totalElements={totalElements}
-          onPageChange={setPage}
-        />
+          {!loading && hospitals.length > 0 && (
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              onPageChange={setPage}
+            />
+          )}
+        </View>
       )}
 
       {/* VERIFY MODAL */}
@@ -412,11 +435,11 @@ export default function HospitalsTab() {
 
                 <View style={{ flex: 1 }}>
                   <Text style={styles.checkboxLabel}>
-                    Verify Clinic Details
+                    Verify Hospital Details
                   </Text>
 
                   <Text style={styles.checkboxHint}>
-                    Registration, contact and clinic information
+                    Registration, contact and hospital information
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -447,7 +470,7 @@ export default function HospitalsTab() {
                   </Text>
 
                   <Text style={styles.checkboxHint}>
-                    Verify clinic address and location
+                    Verify hospital address and location
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -585,7 +608,7 @@ export default function HospitalsTab() {
                 </Text>
 
                 <Text style={styles.summaryItem}>
-                  Clinic Details:{" "}
+                  Hospital Details:{" "}
                   {verifyDetails
                     ? "Verified ✓"
                     : "Not Verified"}
@@ -622,9 +645,9 @@ export default function HospitalsTab() {
                 <PrimaryButton
                   title={
                     verificationStatus === "APPROVED"
-                      ? "Approve Clinic"
+                      ? "Approve Hospital"
                       : verificationStatus === "REJECTED"
-                        ? "Reject Clinic"
+                        ? "Reject Hospital"
                         : "Save Verification"
                   }
                   onPress={handleUpdateVerification}
@@ -648,7 +671,7 @@ export default function HospitalsTab() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>{hId ? "Edit Clinic" : "Add Clinic"}</Text>
+              <Text style={styles.modalTitle}>{hId ? "Edit Hospital" : "Add Hospital"}</Text>
               <TouchableOpacity onPress={() => setShowManageModal(false)}><Ionicons name="close" size={24} color="#64748B" /></TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 500, marginTop: 10 }}>
@@ -708,22 +731,22 @@ const styles = StyleSheet.create({
   addBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
   emptyState: { padding: 30, alignItems: "center", backgroundColor: "rgba(255,255,255,0.5)", borderRadius: 12 },
   emptyStateText: { color: "#64748B" },
-  listItem: { flexDirection: "row", backgroundColor: "#fff", padding: 16, borderRadius: 12, marginBottom: 10, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
-  listItemContent: { flex: 1 },
-  listItemTitle: { fontSize: 16, fontWeight: "bold", color: "#1E293B", marginBottom: 4 },
-  listItemSubtitle: { fontSize: 13, color: "#64748B", marginBottom: 6 },
-  badgeRow: { flexDirection: "row", gap: 8 },
-  listItemBadge: { fontSize: 10, backgroundColor: "#E0E7FF", color: "#4F46E5", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: "bold" },
-  listItemBadge2: { fontSize: 10, backgroundColor: "#F3F4F6", color: "#4B5563", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: "bold" },
-  listItemActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  verifyBtn: { padding: 8, backgroundColor: "#10B981", borderRadius: 8 },
-  iconBtn: { padding: 8, backgroundColor: "#F8FAFC", borderRadius: 8 },
+  verticalCard: { backgroundColor: AdminTheme.surface, width: "100%", padding: 16, borderRadius: AdminTheme.borderRadius.xl, ...AdminTheme.shadows.medium, marginBottom: 16 },
+  horizontalCardContent: { flex: 1 },
+  tableRowTitle: { fontSize: 16, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 4 },
+  tableRowSubtitle: { fontSize: 13, color: AdminTheme.textSecondary },
+  pillBadgeNeutral: { backgroundColor: "#F1F5F9", paddingHorizontal: 8, paddingVertical: 4, borderRadius: AdminTheme.borderRadius.pill, alignSelf: "flex-start" },
+  pillBadgeNeutralText: { fontSize: 10, fontWeight: "bold", color: "#475569" },
+  statusBadgeDot: { flexDirection: "row", alignItems: "center", paddingHorizontal: 10, paddingVertical: 6, borderRadius: AdminTheme.borderRadius.pill, alignSelf: "flex-start", gap: 6 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  horizontalCardActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: AdminTheme.border },
+  cardActionBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 4 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
-  modalContainer: { backgroundColor: "#fff", width: "100%", maxWidth: 500, borderRadius: 20, padding: 24, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 10 },
+  modalContainer: { backgroundColor: AdminTheme.surface, width: "100%", maxWidth: 500, borderRadius: AdminTheme.borderRadius.xl, padding: 24, ...AdminTheme.shadows.medium },
   modalHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  modalTitle: { fontSize: 20, fontWeight: "bold", color: "#1E293B" },
-  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  statusBadgeText: { fontSize: 10, fontWeight: "bold" },
+  modalTitle: { fontSize: 20, fontWeight: "bold", color: AdminTheme.textPrimary },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: AdminTheme.borderRadius.pill },
+  statusBadgeText: { fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
   detailsCard: { backgroundColor: AdminTheme.surfaceAlt, padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: AdminTheme.border },
   detailText: { fontSize: 14, color: AdminTheme.textPrimary, marginBottom: 4 },
   sectionLabel: { fontSize: 15, fontWeight: "bold", color: AdminTheme.textPrimary, marginTop: 10, marginBottom: 10 },
@@ -739,16 +762,11 @@ const styles = StyleSheet.create({
   modalCancelText: { color: "#64748B", fontWeight: "bold" },
   label: { fontSize: 14, color: "#64748B", fontWeight: "600", marginBottom: 6, marginTop: 10 },
   detailTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: AdminTheme.textPrimary,
-    marginBottom: 10,
+    fontSize: 16, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 10,
   },
 
   checkboxHint: {
-    fontSize: 12,
-    color: AdminTheme.textSecondary,
-    marginTop: 3,
+    fontSize: 12, color: AdminTheme.textSecondary, marginTop: 3,
   },
 
   remarksInput: {

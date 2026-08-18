@@ -94,11 +94,11 @@ export default function SelectPortalScreen() {
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => router.push("/")}
+              onPress={() => router.back()}
               activeOpacity={0.75}
             >
               <Ionicons name="arrow-back" size={16} color="#94A3B8" />
-              <Text style={styles.backText}>Back to Home</Text>
+              <Text style={styles.backText}>Home</Text>
             </TouchableOpacity>
 
             <Text style={styles.headerTitle}>Select Your Portal</Text>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { getAllUsers, UserResponse } from "../../services/UserService";
@@ -18,8 +18,10 @@ export default function UsersTab() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
 
+  const [error, setError] = useState(false);
+
   // Tabs for sub-filtering
-  const [activeFilter, setActiveFilter] = useState<"ALL" | "PATIENTS" | "DOCTORS">("ALL");
+  const [activeFilter, setActiveFilter] = useState<"ALL" | "PATIENT" | "DOCTOR" | "ADMIN" | "RECEPTIONIST">("ALL");
 
   useEffect(() => {
     fetchUsers(searchQuery, page);
@@ -36,12 +38,14 @@ export default function UsersTab() {
   const fetchUsers = async (search = "", pageNum = 0) => {
     try {
       setLoading(true);
+      setError(false);
       const data = await getAllUsers(search, pageNum, 10);
       setUsers(data.content);
       setTotalPages(data.totalPages);
       setTotalElements(data.totalElements);
     } catch (err) {
       console.log("Error fetching users", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -60,9 +64,8 @@ export default function UsersTab() {
 
   const filteredUsers = users.filter(u => {
     if (activeFilter === "ALL") return true;
-    if (activeFilter === "PATIENTS") return u.role === "patient";
-    if (activeFilter === "DOCTORS") return u.role === "doctor";
-    return true;
+    if (!u.role) return false;
+    return u.role.toUpperCase() === activeFilter;
   });
 
   return (
@@ -70,17 +73,23 @@ export default function UsersTab() {
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>User Management</Text>
       </View>
-      <View style={styles.filterTabs}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }} contentContainerStyle={{ gap: 10 }}>
         <TouchableOpacity style={[styles.filterTab, activeFilter === "ALL" && styles.filterTabActive]} onPress={() => setActiveFilter("ALL")}>
           <Text style={[styles.filterText, activeFilter === "ALL" && styles.filterTextActive]}>All</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, activeFilter === "PATIENTS" && styles.filterTabActive]} onPress={() => setActiveFilter("PATIENTS")}>
-          <Text style={[styles.filterText, activeFilter === "PATIENTS" && styles.filterTextActive]}>Patients</Text>
+        <TouchableOpacity style={[styles.filterTab, activeFilter === "PATIENT" && styles.filterTabActive]} onPress={() => setActiveFilter("PATIENT")}>
+          <Text style={[styles.filterText, activeFilter === "PATIENT" && styles.filterTextActive]}>Patients</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.filterTab, activeFilter === "DOCTORS" && styles.filterTabActive]} onPress={() => setActiveFilter("DOCTORS")}>
-          <Text style={[styles.filterText, activeFilter === "DOCTORS" && styles.filterTextActive]}>Doctors</Text>
+        <TouchableOpacity style={[styles.filterTab, activeFilter === "DOCTOR" && styles.filterTabActive]} onPress={() => setActiveFilter("DOCTOR")}>
+          <Text style={[styles.filterText, activeFilter === "DOCTOR" && styles.filterTextActive]}>Doctors</Text>
         </TouchableOpacity>
-      </View>
+        <TouchableOpacity style={[styles.filterTab, activeFilter === "RECEPTIONIST" && styles.filterTabActive]} onPress={() => setActiveFilter("RECEPTIONIST")}>
+          <Text style={[styles.filterText, activeFilter === "RECEPTIONIST" && styles.filterTextActive]}>Receptionists</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.filterTab, activeFilter === "ADMIN" && styles.filterTabActive]} onPress={() => setActiveFilter("ADMIN")}>
+          <Text style={[styles.filterText, activeFilter === "ADMIN" && styles.filterTextActive]}>Admins</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       <SearchBar 
         value={searchQuery} 
@@ -90,31 +99,42 @@ export default function UsersTab() {
 
       {loading && filteredUsers.length === 0 ? (
         <View style={styles.center}><ActivityIndicator size="large" color={AdminTheme.primary} /></View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={{color: AdminTheme.danger, marginBottom: 12}}>Failed to load users</Text>
+          <TouchableOpacity onPress={() => fetchUsers(searchQuery, page)} style={{backgroundColor: AdminTheme.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8}}>
+            <Text style={{color: "#FFF", fontWeight: "600"}}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : filteredUsers.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>No users found.</Text>
         </View>
       ) : (
         filteredUsers.map(u => {
-          const status = u.isActive ? "ACTIVE" : "BLOCKED";
-          const statusStyle = getStatusStyle(status);
+          const status = u.isActive ? "ACTIVE" : "INACTIVE";
           return (
             <View key={u.id} style={[styles.listItem, { borderLeftColor: AdminTheme.info, borderLeftWidth: 4 }]}>
               <View style={styles.listItemContent}>
                 <Text style={styles.listItemTitle}>{u.firstName} {u.lastName}</Text>
                 <Text style={styles.listItemSubtitle}>{u.email}</Text>
-                <View style={styles.badgeRow}>
-                  <Text style={styles.listItemBadge2}>{u.role}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>{status}</Text>
-                  </View>
+                <View style={{ marginBottom: 4 }}>
+                  <Text style={[styles.listItemSubtitle, { marginBottom: 2 }]}>Role: {(u.role || "UNKNOWN").toUpperCase()}</Text>
+                  <Text style={[styles.listItemSubtitle, { marginBottom: 0 }]}>Status: {status}</Text>
                 </View>
               </View>
               <View style={styles.listItemActions}>
-                <TouchableOpacity onPress={() => handleToggleBlock(u)} style={[styles.actionBtn, u.isActive ? styles.btnBlock : styles.btnUnblock]}>
-                  <Text style={styles.actionBtnText}>{u.isActive ? "Block" : "Unblock"}</Text>
-                  <Ionicons name={u.isActive ? "ban" : "checkmark-circle"} size={16} color="#fff" />
-                </TouchableOpacity>
+                {u.isActive ? (
+                  <TouchableOpacity onPress={() => handleToggleBlock(u)} style={[styles.actionBtn, styles.btnBlock]}>
+                    <Text style={styles.actionBtnText}>Block</Text>
+                    <Ionicons name="ban" size={16} color="#fff" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => handleToggleBlock(u)} style={[styles.actionBtn, styles.btnUnblock]}>
+                    <Text style={styles.actionBtnText}>Unblock</Text>
+                    <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           );
@@ -145,7 +165,7 @@ const styles = StyleSheet.create({
   filterTextActive: { color: "#fff" },
   emptyState: { padding: 30, alignItems: "center", backgroundColor: AdminTheme.surfaceAlt, borderRadius: 12 },
   emptyStateText: { color: AdminTheme.textSecondary },
-  listItem: { flexDirection: "row", backgroundColor: AdminTheme.surface, padding: 16, borderRadius: 12, marginBottom: 10, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5 },
+  listItem: { flexDirection: "row", backgroundColor: AdminTheme.surface, padding: 20, borderRadius: AdminTheme.borderRadius.lg, marginBottom: 16, ...AdminTheme.shadows.soft, borderWidth: 1, borderColor: AdminTheme.border },
   listItemContent: { flex: 1 },
   listItemTitle: { fontSize: 16, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 4 },
   listItemSubtitle: { fontSize: 13, color: AdminTheme.textSecondary, marginBottom: 6 },
@@ -154,7 +174,7 @@ const styles = StyleSheet.create({
   statusBadgeText: { fontSize: 10, fontWeight: "bold" },
   listItemBadge2: { fontSize: 10, backgroundColor: "#F3F4F6", color: "#4B5563", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: "bold", textTransform: "uppercase" },
   listItemActions: { flexDirection: "row", alignItems: "center", gap: 10 },
-  actionBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, gap: 4 },
+  actionBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, borderRadius: AdminTheme.borderRadius.pill, gap: 6 },
   btnBlock: { backgroundColor: AdminTheme.danger },
   btnUnblock: { backgroundColor: AdminTheme.success },
   actionBtnText: { color: "#fff", fontSize: 13, fontWeight: "bold" },

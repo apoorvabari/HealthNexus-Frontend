@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
-import { AdminTheme } from "../../constants/adminTheme";
 import { Ionicons } from "@expo/vector-icons";
-import { getDashboardStats, AdminDashboardStatsResponse } from "../../services/AdminService";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AdminTheme } from "../../constants/adminTheme";
+import { AdminDashboardStatsResponse, getDashboardStats } from "../../services/AdminService";
 
 export default function OverviewTab() {
   const [stats, setStats] = useState<AdminDashboardStatsResponse | null>(null);
@@ -27,7 +27,7 @@ export default function OverviewTab() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#8B5CF6" />
+        <ActivityIndicator size="large" color={AdminTheme.primary} />
       </View>
     );
   }
@@ -36,104 +36,182 @@ export default function OverviewTab() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Failed to load platform stats</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={fetchStats}>
+          <Text style={styles.retryBtnText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const sections = [
-    {
-      title: "Doctors",
-      icon: "medkit",
-      color: AdminTheme.primary,
-      items: [
-        { label: "Total", value: stats.totalDoctors },
-        { label: "Pending", value: stats.pendingDoctors, color: AdminTheme.warning },
-        { label: "Approved", value: stats.approvedDoctors, color: AdminTheme.success },
-        { label: "Rejected", value: stats.rejectedDoctors, color: AdminTheme.danger },
-      ]
-    },
-    {
-      title: "Hospitals / Clinics",
-      icon: "business",
-      color: AdminTheme.info,
-      items: [
-        { label: "Total", value: stats.totalHospitals },
-        { label: "Pending", value: stats.pendingHospitals, color: AdminTheme.warning },
-        { label: "Approved", value: stats.approvedHospitals, color: AdminTheme.success },
-        { label: "Rejected", value: stats.rejectedHospitals, color: AdminTheme.danger },
-      ]
-    },
-    {
-      title: "Users",
-      icon: "people",
-      color: AdminTheme.success,
-      items: [
-        { label: "Total", value: stats.totalUsers },
-        { label: "Active", value: stats.activeUsers, color: AdminTheme.success },
-        { label: "Deleted", value: stats.deletedUsers, color: AdminTheme.danger },
-      ]
-    }
-  ];
-
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.pageTitle}>Platform Overview</Text>
-      
-      {sections.map((section, idx) => (
-        <View key={idx} style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.iconContainer, { backgroundColor: section.color + "1A" }]}>
-              <Ionicons name={section.icon as any} size={24} color={section.color} />
-            </View>
-            <Text style={styles.sectionTitleText}>{section.title}</Text>
+      <Text style={styles.pageSubtitle}>Monitor users, doctors, hospitals and platform activity</Text>
+
+      {/* DOCTORS CARD */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.iconWrapper, { backgroundColor: AdminTheme.primaryBg }]}>
+            <Ionicons name="medkit" size={24} color={AdminTheme.primary} />
           </View>
-          
-          <View style={styles.grid}>
-            {section.items.map((item, itemIdx) => (
-              <View key={itemIdx} style={[styles.card, item.color && { borderLeftColor: item.color, borderLeftWidth: 4 }]}>
-                <Text style={[styles.cardValue, item.color && { color: item.color }]}>{item.value}</Text>
-                <Text style={styles.cardTitle}>{item.label}</Text>
-              </View>
-            ))}
+          <Text style={styles.sectionTitle}>Doctors</Text>
+        </View>
+        <View style={styles.grid}>
+          <View style={[styles.tile, styles.tileTotal]}>
+            <Text style={[styles.tileNumber, styles.textTotal]}>{stats.totalDoctors}</Text>
+            <Text style={styles.tileLabel}>Total</Text>
+          </View>
+          <View style={[styles.tile, styles.tilePending]}>
+            <Text style={[styles.tileNumber, styles.textPending]}>{stats.pendingDoctors}</Text>
+            <Text style={styles.tileLabel}>Pending</Text>
+          </View>
+          <View style={[styles.tile, styles.tileApproved]}>
+            <Text style={[styles.tileNumber, styles.textApproved]}>{stats.approvedDoctors}</Text>
+            <Text style={styles.tileLabel}>Approved</Text>
+          </View>
+          <View style={[styles.tile, styles.tileRejected]}>
+            <Text style={[styles.tileNumber, styles.textRejected]}>{stats.rejectedDoctors}</Text>
+            <Text style={styles.tileLabel}>Rejected</Text>
           </View>
         </View>
-      ))}
-    </ScrollView>
+      </View>
+
+      {/* HOSPITALS CARD */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.iconWrapper, { backgroundColor: AdminTheme.infoBg }]}>
+            <Ionicons name="business" size={24} color={AdminTheme.info} />
+          </View>
+          <Text style={styles.sectionTitle}>Hospitals</Text>
+        </View>
+        <View style={styles.grid}>
+          <View style={[styles.tile, styles.tileTotal]}>
+            <Text style={[styles.tileNumber, styles.textTotal]}>{stats.totalHospitals}</Text>
+            <Text style={styles.tileLabel}>Total</Text>
+          </View>
+          <View style={[styles.tile, styles.tilePending]}>
+            <Text style={[styles.tileNumber, styles.textPending]}>{stats.pendingHospitals}</Text>
+            <Text style={styles.tileLabel}>Pending</Text>
+          </View>
+          <View style={[styles.tile, styles.tileApproved]}>
+            <Text style={[styles.tileNumber, styles.textApproved]}>{stats.approvedHospitals}</Text>
+            <Text style={styles.tileLabel}>Approved</Text>
+          </View>
+          <View style={[styles.tile, styles.tileRejected]}>
+            <Text style={[styles.tileNumber, styles.textRejected]}>{stats.rejectedHospitals}</Text>
+            <Text style={styles.tileLabel}>Rejected</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* USERS CARD */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <View style={[styles.iconWrapper, { backgroundColor: AdminTheme.successBg }]}>
+            <Ionicons name="people" size={24} color={AdminTheme.success} />
+          </View>
+          <Text style={styles.sectionTitle}>Users</Text>
+        </View>
+        <View style={styles.grid}>
+          <View style={[styles.tile, styles.tileTotal]}>
+            <Text style={[styles.tileNumber, styles.textTotal]}>{stats.totalUsers}</Text>
+            <Text style={styles.tileLabel}>Total</Text>
+          </View>
+          <View style={[styles.tile, styles.tileApproved]}>
+            <Text style={[styles.tileNumber, styles.textApproved]}>{stats.activeUsers}</Text>
+            <Text style={styles.tileLabel}>Active</Text>
+          </View>
+          <View style={[styles.tile, styles.tileRejected]}>
+            <Text style={[styles.tileNumber, styles.textRejected]}>{stats.deletedUsers}</Text>
+            <Text style={styles.tileLabel}>Deleted</Text>
+          </View>
+          <View style={styles.tileEmpty} />
+        </View>
+      </View>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingBottom: 20 },
+  container: { paddingBottom: 40 },
   center: { flex: 1, justifyContent: "center", alignItems: "center", minHeight: 200 },
-  pageTitle: { fontSize: 20, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 20 },
-  errorText: { color: AdminTheme.danger, fontWeight: "600" },
-  sectionContainer: {
+  pageTitle: { fontSize: 22, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 4 },
+  pageSubtitle: { fontSize: 14, color: AdminTheme.textSecondary, marginBottom: 24 },
+  errorText: { color: AdminTheme.danger, fontWeight: "600", marginBottom: 12 },
+  retryBtn: { backgroundColor: AdminTheme.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
+  retryBtnText: { color: "#FFF", fontWeight: "600" },
+
+  sectionCard: {
     backgroundColor: AdminTheme.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    borderRadius: AdminTheme.borderRadius.xl,
+    padding: 24,
+    marginBottom: 24,
+    ...AdminTheme.shadows.medium,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: AdminTheme.border,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
   },
-  iconContainer: { width: 44, height: 44, borderRadius: 22, justifyContent: "center", alignItems: "center", marginRight: 12 },
-  sectionTitleText: { fontSize: 18, fontWeight: "700", color: AdminTheme.textPrimary },
-  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 15 },
-  card: {
-    backgroundColor: AdminTheme.background,
-    borderRadius: 10,
-    padding: 15,
-    width: "47%",
+  iconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: AdminTheme.textPrimary,
+  },
+
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 16,
+  },
+
+  tile: {
+    width: "48%", // strictly 2-column, leaves a small gap
+    borderRadius: AdminTheme.borderRadius.lg,
+    paddingVertical: 20,
+    paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  cardValue: { fontSize: 26, fontWeight: "bold", color: AdminTheme.textPrimary, marginBottom: 5 },
-  cardTitle: { fontSize: 13, color: AdminTheme.textSecondary, fontWeight: "600" },
+  tileEmpty: {
+    width: "48%", // empty placeholder to force 2-column alignment for Users deleted tile
+  },
+
+  tileNumber: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  tileLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: AdminTheme.textSecondary,
+    textAlign: "center",
+  },
+
+  // Color specific styles
+  tileTotal: { backgroundColor: AdminTheme.surfaceAlt },
+  textTotal: { color: AdminTheme.textPrimary },
+
+  tilePending: { backgroundColor: AdminTheme.status.PENDING.bg },
+  textPending: { color: AdminTheme.status.PENDING.text },
+
+  tileApproved: { backgroundColor: AdminTheme.status.APPROVED.bg },
+  textApproved: { color: AdminTheme.status.APPROVED.text },
+
+  tileRejected: { backgroundColor: AdminTheme.status.REJECTED.bg },
+  textRejected: { color: AdminTheme.status.REJECTED.text },
 });

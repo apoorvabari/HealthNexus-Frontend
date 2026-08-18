@@ -15,9 +15,11 @@ export const resetPassword = async (data: any): Promise<any> => {
   return response.data;
 };
 
-export const logout = async (userEmail?: string): Promise<any> => {
+export const logout = async (userId?: string): Promise<any> => {
   try {
-    const response = await api.post("/api/users/logout", { email: userEmail });
+    const response = await api.post("/api/users/logout", null, {
+      params: { userId },
+    });
     return response.data;
   } catch (error) {
     return { success: true };

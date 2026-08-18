@@ -168,6 +168,7 @@ export default function UnifiedLoginScreen() {
       await resetPassword({
         email: resetEmail.trim(),
         newPassword: newPassword,
+        confirmPassword: confirmPassword,
       });
 
       Toast.show({
@@ -305,7 +306,7 @@ export default function UnifiedLoginScreen() {
           >
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => router.push("/select-portal")}
+              onPress={() => router.back()}
               activeOpacity={0.75}
             >
               <Ionicons name="arrow-back" size={16} color="#94A3B8" />

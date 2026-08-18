@@ -384,9 +384,11 @@ export default function DoctorHomeScreen() {
                           <Text style={styles.activePatientTitle}>CONSULTATION IN PROGRESS</Text>
                         </View>
                         <Text style={styles.activeToken}>{activeConsultation.tokenNumber}</Text>
-                        <Text style={styles.activePatientLabel}>Appointment Ref</Text>
-                        <Text style={styles.activePatientCode}>{activeConsultation.appointmentNumber}</Text>
-                        <TouchableOpacity style={[styles.primaryActionBtn, styles.completeBtn]} onPress={() => handleCompleteConsultation(activeConsultation.id)} activeOpacity={0.85}>
+                        <Text style={[styles.activePatientLabel, { color: '#0F172A', fontSize: 18, fontWeight: '700', marginVertical: 4 }]}>
+                          👤 {activeConsultation.patientName || "Patient"}
+                        </Text>
+                        <Text style={styles.activePatientLabel}>Appointment Ref: {activeConsultation.appointmentNumber}</Text>
+                        <TouchableOpacity style={[styles.primaryActionBtn, styles.completeBtn, { marginTop: 12 }]} onPress={() => handleCompleteConsultation(activeConsultation.id)} activeOpacity={0.85}>
                           <Text style={styles.primaryActionBtnText}>✅ Complete Consultation</Text>
                         </TouchableOpacity>
                       </View>
@@ -394,9 +396,11 @@ export default function DoctorHomeScreen() {
                       <View style={styles.activeCalledBox}>
                         <Text style={styles.activePatientTitle}>PATIENT CALLED TO DESK</Text>
                         <Text style={[styles.activeToken, { color: "#38BDF8" }]}>{calledPatient.tokenNumber}</Text>
-                        <Text style={styles.activePatientLabel}>Appointment Ref</Text>
-                        <Text style={styles.activePatientCode}>{calledPatient.appointmentNumber}</Text>
-                        <View style={styles.calledActionRow}>
+                        <Text style={[styles.activePatientLabel, { color: '#0F172A', fontSize: 18, fontWeight: '700', marginVertical: 4 }]}>
+                          👤 {calledPatient.patientName || "Patient"}
+                        </Text>
+                        <Text style={styles.activePatientLabel}>Appointment Ref: {calledPatient.appointmentNumber}</Text>
+                        <View style={[styles.calledActionRow, { marginTop: 12 }]}>
                           <TouchableOpacity style={[styles.halfActionBtn, styles.startBtn]} onPress={() => handleStartConsultation(calledPatient.id)} activeOpacity={0.85}>
                             <Text style={styles.primaryActionBtnText}>🩺 Start</Text>
                           </TouchableOpacity>
@@ -437,6 +441,9 @@ export default function DoctorHomeScreen() {
                               </View>
                               <View>
                                 <Text style={styles.appointmentNum}>Appt: {item.appointmentNumber}</Text>
+                                <Text style={[styles.appointmentNum, { color: '#0F172A', fontWeight: '500', marginTop: 2 }]}>
+                                  👤 {item.patientName || "Patient"}
+                                </Text>
                                 <Text style={styles.checkedInTime}>
                                   In: {new Date(item.checkedInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </Text>

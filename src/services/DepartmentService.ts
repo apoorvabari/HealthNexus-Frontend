@@ -8,6 +8,37 @@ export interface DepartmentResponse {
   [key: string]: any;
 }
 
+export interface DepartmentDoctorResponse {
+  id: string;
+  accountId?: string;
+  accountName?: string;
+  hospitalId?: string;
+  hospitalName?: string;
+  departmentId?: string;
+  departmentName?: string;
+  specialization?: string;
+  qualification?: string;
+  experience?: number;
+  consultationFee?: number;
+  licenseNumber?: string;
+  status?: string;
+  verificationStatus?: string;
+  licenseVerified?: boolean;
+  degreeVerified?: boolean;
+  specializationVerified?: boolean;
+  verificationRemarks?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  message?: string;
+}
+
+export interface DepartmentAnalyticsResponse {
+  totalDoctors: number;
+  activeDoctors: number;
+  inactiveDoctors: number;
+  suspendedDoctors: number;
+}
+
 import { PageResponse } from "./AdminService";
 
 export const getAllDepartments = async (search = "", page = 0, size = 10): Promise<PageResponse<DepartmentResponse>> => {
@@ -37,5 +68,27 @@ export const updateDepartment = async (id: string, data: any): Promise<Departmen
 
 export const deleteDepartment = async (id: string): Promise<string> => {
   const response = await api.delete<string>(`/api/departments/${id}`);
+  return response.data;
+};
+
+export const getDoctorsByDepartment = async (
+  departmentId: string,
+  page = 0,
+  size = 10
+): Promise<PageResponse<DepartmentDoctorResponse>> => {
+  const response = await api.get<PageResponse<DepartmentDoctorResponse>>(
+    `/api/departments/${departmentId}/doctors?page=${page}&size=${size}`
+  );
+
+  return response.data;
+};
+
+export const getDepartmentAnalytics = async (
+  departmentId: string
+): Promise<DepartmentAnalyticsResponse> => {
+  const response = await api.get<DepartmentAnalyticsResponse>(
+    `/api/departments/${departmentId}/analytics`
+  );
+
   return response.data;
 };

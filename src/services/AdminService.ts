@@ -29,8 +29,13 @@ export interface AdminDashboardStatsResponse {
   deletedUsers: number;
 }
 
+export type DoctorStatus =
+  | "ACTIVE"
+  | "INACTIVE"
+  | "SUSPENDED";
+
 export interface StatusUpdateRequest {
-  status: string;
+  status: DoctorStatus;
 }
 
 export type HospitalVerificationStatus =
@@ -85,10 +90,21 @@ export interface AuditLogResponse {
   timestamp: string;
 }
 
-export const getPlatformAnalytics = async (): Promise<AnalyticsResponse> => {
-  const response = await api.get<AnalyticsResponse>("/api/admin/analytics");
-  return response.data;
-};
+
+export interface PageResponse<T> {
+  content: T[];
+  pageNumber: number;
+  pageSize: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}
+
+export const getPlatformAnalytics =
+  async (): Promise<AnalyticsResponse> => {
+    const response = await api.get<AnalyticsResponse>("/api/admin/analytics");
+    return response.data;
+  };
 
 export const getDashboardStats =
   async (): Promise<AdminDashboardStatsResponse> => {
@@ -170,14 +186,6 @@ export const updateSystemSetting = async (
   return response.data;
 };
 
-export interface PageResponse<T> {
-  content: T[];
-  pageNumber: number;
-  pageSize: number;
-  totalElements: number;
-  totalPages: number;
-  last: boolean;
-}
 
 export const getAuditLogs = async (search = "", page = 0, size = 10): Promise<PageResponse<AuditLogResponse>> => {
   const response = await api.get<PageResponse<AuditLogResponse>>(`/api/admin/audit-logs?search=${search}&page=${page}&size=${size}`);
